@@ -1,0 +1,277 @@
+{
+  "access_policies": [
+    {
+      "name": "Dittofeed Production Dashboard Access",
+      "description": "Controls access to the main Dittofeed dashboard",
+      "application": {
+        "domain": "dashboard.com.caramelme.com",
+        "type": "self_hosted",
+        "session_duration": "24h",
+        "cors_headers": {
+          "access_control_allow_origin": "*",
+          "access_control_allow_methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "access_control_allow_headers": "Content-Type, Authorization, X-Workspace-Id"
+        }
+      },
+      "policies": [
+        {
+          "name": "Admin Access",
+          "decision": "allow",
+          "precedence": 1,
+          "require": [
+            {
+              "email_domain": {
+                "domain": "your-company.com"
+              }
+            },
+            {
+              "group": {
+                "id": "admin-group-id"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Team Member Access",
+          "decision": "allow",
+          "precedence": 2,
+          "require": [
+            {
+              "email_domain": {
+                "domain": "your-company.com"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dittofeed API Access",
+      "description": "Controls access to the Dittofeed API endpoints",
+      "application": {
+        "domain": "api.com.caramelme.com",
+        "type": "self_hosted",
+        "session_duration": "24h",
+        "cors_headers": {
+          "access_control_allow_origin": "*",
+          "access_control_allow_methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "access_control_allow_headers": "Content-Type, Authorization, X-Workspace-Id"
+        }
+      },
+      "policies": [
+        {
+          "name": "Public API Access",
+          "decision": "allow",
+          "precedence": 1,
+          "require": [
+            {
+              "any_valid_service_token": true
+            }
+          ]
+        },
+        {
+          "name": "Authenticated User Access",
+          "decision": "allow",
+          "precedence": 2,
+          "require": [
+            {
+              "email_domain": {
+                "domain": "your-company.com"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Monitoring Dashboard Access",
+      "description": "Restricted access to Grafana monitoring dashboard",
+      "application": {
+        "domain": "grafana.com.caramelme.com",
+        "type": "self_hosted",
+        "session_duration": "8h"
+      },
+      "policies": [
+        {
+          "name": "Operations Team Only",
+          "decision": "allow",
+          "precedence": 1,
+          "require": [
+            {
+              "email_domain": {
+                "domain": "your-company.com"
+              }
+            },
+            {
+              "group": {
+                "id": "ops-team-group-id"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Metrics Access",
+      "description": "Highly restricted access to Prometheus metrics",
+      "application": {
+        "domain": "prometheus.com.caramelme.com",
+        "type": "self_hosted",
+        "session_duration": "2h"
+      },
+      "policies": [
+        {
+          "name": "Admins Only",
+          "decision": "allow",
+          "precedence": 1,
+          "require": [
+            {
+              "email": [
+                "admin@your-company.com",
+                "devops@your-company.com"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "gateway_policies": [
+    {
+      "name": "Dittofeed Security Gateway",
+      "description": "Network-level security for Dittofeed services",
+      "action": "allow",
+      "filters": [
+        {
+          "type": "http",
+          "selector": "http.request.uri.path",
+          "operator": "matches",
+          "value": "^/api/.*"
+        }
+      ],
+      "rule_settings": {
+        "block_page_enabled": true,
+        "block_reason": "Access denied by security policy",
+        "add_headers": {
+          "X-Security-Policy": "Dittofeed-Gateway"
+        }
+      }
+    },
+    {
+      "name": "Rate Limiting",
+      "description": "Rate limiting for API endpoints",
+      "action": "block",
+      "filters": [
+        {
+          "type": "http",
+          "selector": "cf.threat_score",
+          "operator": "greater than",
+          "value": "50"
+        }
+      ],
+      "rule_settings": {
+        "block_page_enabled": true,
+        "block_reason": "Rate limit exceeded"
+      }
+    }
+  ],
+  "dlp_policies": [
+    {
+      "name": "Sensitive Data Protection",
+      "description": "Prevents exposure of sensitive customer data",
+      "enabled": true,
+      "rules": [
+        {
+          "name": "Credit Card Detection",
+          "expression": "cf.dlp.score.credit_cards > 0",
+          "action": "block"
+        },
+        {
+          "name": "SSN Detection",
+          "expression": "cf.dlp.score.ssn > 0",
+          "action": "block"
+        },
+        {
+          "name": "API Key Detection",
+          "expression": "cf.dlp.score.secrets > 0",
+          "action": "log"
+        }
+      ]
+    }
+  ],
+  "device_trust_policies": [
+    {
+      "name": "Corporate Device Requirement",
+      "description": "Require managed devices for admin access",
+      "match": [
+        {
+          "group": {
+            "id": "admin-group-id"
+          }
+        }
+      ],
+      "require": [
+        {
+          "device_posture": {
+            "integration_uid": "your-device-trust-integration-id"
+          }
+        }
+      ]
+    }
+  ],
+  "identity_providers": [
+    {
+      "type": "google",
+      "name": "Google Workspace",
+      "config": {
+        "client_id": "your-google-client-id",
+        "client_secret": "your-google-client-secret",
+        "apps_domain": "your-company.com",
+        "claims": [
+          "email",
+          "groups",
+          "name"
+        ]
+      }
+    },
+    {
+      "type": "okta",
+      "name": "Okta SSO",
+      "config": {
+        "okta_url": "https://your-company.okta.com",
+        "client_id": "your-okta-client-id",
+        "client_secret": "your-okta-client-secret",
+        "claims": [
+          "email",
+          "groups",
+          "name"
+        ]
+      }
+    }
+  ],
+  "service_tokens": [
+    {
+      "name": "Dittofeed API Service Token",
+      "duration": "unlimited",
+      "policy": "api-access-policy"
+    },
+    {
+      "name": "Monitoring Service Token",
+      "duration": "1y",
+      "policy": "monitoring-access-policy"
+    }
+  ],
+  "warp_settings": {
+    "enabled": true,
+    "device_settings": {
+      "gateway_with_warp": true,
+      "gateway_with_resolver": true
+    },
+    "split_tunnels": [
+      {
+        "address": "your-domain.com",
+        "description": "Include Dittofeed domain in tunnel"
+      }
+    ]
+  }
+}

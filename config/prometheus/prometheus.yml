@@ -1,0 +1,244 @@
+# Prometheus Configuration for Dittofeed Enterprise Multitenancy
+# Monitors all services with tenant-aware metrics collection
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'dittofeed-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Dittofeed API Server metrics
+  - job_name: 'dittofeed-api'
+    static_configs:
+      - targets: ['api:3000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: api:3000
+    metric_relabel_configs:
+      # Add service label
+      - target_label: service
+        replacement: 'dittofeed-api'
+      # Preserve workspace labels for tenant metrics
+      - source_labels: [workspace_id]
+        target_label: workspace
+        regex: '(.+)'
+
+  # Dittofeed Dashboard metrics
+  - job_name: 'dittofeed-dashboard'
+    static_configs:
+      - targets: ['dashboard:3000']
+    metrics_path: /api/metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'dittofeed-dashboard'
+
+  # Dittofeed Worker metrics
+  - job_name: 'dittofeed-worker'
+    static_configs:
+      - targets: ['worker:3000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'dittofeed-worker'
+      # Preserve workspace labels
+      - source_labels: [workspace_id]
+        target_label: workspace
+        regex: '(.+)'
+
+  # PostgreSQL metrics (via postgres_exporter)
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'postgresql'
+      # Add database-specific labels
+      - source_labels: [datname]
+        target_label: database
+        regex: '(.+)'
+
+  # Redis metrics (via redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis_exporter:9121']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'redis'
+
+  # Node/System metrics (via node_exporter)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node_exporter:9100']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'system'
+
+  # Docker container metrics (via cadvisor)
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'docker'
+      # Relabel container names
+      - source_labels: [name]
+        target_label: container_name
+        regex: '(.+)'
+
+  # Cloudflare Tunnel metrics (if cloudflared exposes metrics)
+  - job_name: 'cloudflared'
+    static_configs:
+      - targets: ['cloudflared:8080']
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'cloudflared'
+
+  # Custom multitenancy metrics
+  - job_name: 'dittofeed-tenant-metrics'
+    static_configs:
+      - targets: ['api:3000']
+    metrics_path: /api/metrics/tenants
+    scrape_interval: 60s
+    scrape_timeout: 15s
+    params:
+      format: ['prometheus']
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'tenant-metrics'
+      # Preserve all workspace-related labels
+      - source_labels: [workspace_id]
+        target_label: workspace
+        regex: '(.+)'
+      - source_labels: [workspace_name]
+        target_label: workspace_name
+        regex: '(.+)'
+
+  # Quota metrics
+  - job_name: 'dittofeed-quotas'
+    static_configs:
+      - targets: ['api:3000']
+    metrics_path: /api/metrics/quotas
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'quota-metrics'
+      - source_labels: [workspace_id]
+        target_label: workspace
+        regex: '(.+)'
+      - source_labels: [resource_type]
+        target_label: resource
+        regex: '(.+)'
+
+  # Security/Audit metrics
+  - job_name: 'dittofeed-security'
+    static_configs:
+      - targets: ['api:3000']
+    metrics_path: /api/metrics/security
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      - target_label: service
+        replacement: 'security-metrics'
+      - source_labels: [event_type]
+        target_label: audit_event
+        regex: '(.+)'
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "https://your-remote-storage-url/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+#     write_relabel_configs:
+#       - source_labels: [__name__]
+#         regex: 'dittofeed.*'
+#         action: keep
+
+# Remote read configuration
+# remote_read:
+#   - url: "https://your-remote-storage-url/api/v1/read"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+
+# Storage configuration
+storage:
+  tsdb:
+    # Retention period for metrics
+    retention: "15d"
+    # Path where metrics are stored
+    path: "/prometheus"
+    # Minimum block duration
+    min-block-duration: "2h"
+    # Maximum block duration
+    max-block-duration: "25h"
+    # WAL compression
+    wal-compression: true
+
+# Query engine configuration
+query:
+  # Maximum number of concurrent queries
+  max-concurrency: 20
+  # Query timeout
+  timeout: 2m
+  # Maximum number of samples per query
+  max-samples: 50000000
+
+# Web configuration
+web:
+  # Console templates and libraries
+  console:
+    templates: "/etc/prometheus/consoles"
+    libraries: "/etc/prometheus/console_libraries"
+  # Enable admin API
+  enable-admin-api: false
+  # Enable lifecycle API
+  enable-lifecycle-api: true

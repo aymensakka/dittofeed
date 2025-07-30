@@ -1,0 +1,89 @@
+# Cloudflare Tunnel Configuration for Dittofeed Production
+# This file defines the tunnel routing for your Dittofeed services
+
+tunnel: dittofeed-production
+credentials-file: /etc/cloudflared/credentials.json
+
+# Ingress rules define how traffic is routed to your services
+ingress:
+  # Dashboard routes
+  - hostname: dashboard.com.caramelme.com
+    service: http://dashboard:3000
+    originRequest:
+      httpHostHeader: dashboard.com.caramelme.com
+      connectTimeout: 30s
+      tlsTimeout: 10s
+      tcpKeepAlive: 30s
+      keepAliveTimeout: 90s
+      keepAliveConnections: 100
+
+  # API routes
+  - hostname: api.com.caramelme.com
+    service: http://api:3000
+    originRequest:
+      httpHostHeader: api.com.caramelme.com
+      connectTimeout: 30s
+      tlsTimeout: 10s
+
+  # Worker service (for admin access)
+  - hostname: worker.com.caramelme.com
+    service: http://worker:3000
+    originRequest:
+      httpHostHeader: worker.com.caramelme.com
+      connectTimeout: 30s
+      tlsTimeout: 10s
+
+  # Grafana monitoring
+  - hostname: grafana.com.caramelme.com
+    service: http://grafana:3000
+    originRequest:
+      httpHostHeader: grafana.com.caramelme.com
+      connectTimeout: 30s
+      tlsTimeout: 10s
+
+  # Prometheus metrics
+  - hostname: prometheus.com.caramelme.com
+    service: http://prometheus:9090
+    originRequest:
+      httpHostHeader: prometheus.com.caramelme.com
+      connectTimeout: 30s
+      tlsTimeout: 10s
+
+  # Catch-all rule (required as last rule)
+  - service: http_status:404
+
+# Origin certificate settings for enhanced security
+originRequest:
+  # Use HTTP/2 for better performance
+  http2Origin: true
+  
+  # Connection settings
+  connectTimeout: 30s
+  tlsTimeout: 10s
+  tcpKeepAlive: 30s
+  keepAliveTimeout: 90s
+  keepAliveConnections: 100
+  
+  # Security headers
+  originServerName: your-domain.com
+  
+  # Disable chunked transfer encoding for better compatibility
+  disableChunkedEncoding: false
+
+# Logging configuration
+logLevel: info
+logDirectory: /var/log/cloudflared
+logFile: cloudflared.log
+
+# Metrics and monitoring
+metrics: 0.0.0.0:8080
+metrics-update-freq: 5s
+
+# Auto-update settings (disabled for production stability)
+no-autoupdate: true
+
+# Protocol settings
+protocol: quic
+
+# Grace period for graceful shutdown
+grace-period: 30s

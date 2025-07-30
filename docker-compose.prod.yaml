@@ -1,0 +1,288 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with Enterprise Multitenancy
+  postgres:
+    image: postgres:15-alpine
+    container_name: dittofeed_postgres
+    environment:
+      POSTGRES_DB: dittofeed
+      POSTGRES_USER: dittofeed
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./packages/backend-lib/drizzle:/docker-entrypoint-initdb.d/migrations
+    ports:
+      - "5432:5432"
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Redis Cache for Workspace-Scoped Caching
+  redis:
+    image: redis:7-alpine
+    container_name: dittofeed_redis
+    volumes:
+      - redis_data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server /usr/local/etc/redis/redis.conf
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Dittofeed API Server (Load balanced by Cloudflare)
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile.prod
+    container_name: dittofeed_api
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: true
+      AUDIT_LOG_ENABLED: true
+      AUDIT_LOG_RETENTION_DAYS: 90
+      TENANT_CACHE_TTL: 300
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Performance Settings
+      DB_POOL_SIZE: 20
+      DB_POOL_TIMEOUT: 30000
+      REDIS_POOL_SIZE: 10
+      # Monitoring
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://prometheus:4318
+      OTEL_SERVICE_NAME: dittofeed-api
+      # Cloudflare Configuration
+      CF_TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+      TRUSTED_PROXIES: 173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22
+    ports:
+      - "3000:3000"  # Exposed for Cloudflare Tunnel
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: '1.2'
+        reservations:
+          memory: 768M
+          cpus: '0.6'
+
+  # Dittofeed Dashboard (Next.js Frontend)
+  dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile.prod
+    container_name: dittofeed_dashboard
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+      NEXTAUTH_URL: https://${DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      CF_TUNNEL_TOKEN: ${CF_DASHBOARD_TUNNEL_TOKEN}
+    ports:
+      - "3001:3000"  # Exposed for Cloudflare Tunnel
+    depends_on:
+      - api
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Background Worker for Job Processing
+  worker:
+    build:
+      context: .
+      dockerfile: packages/worker/Dockerfile.prod
+    container_name: dittofeed_worker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
+      REDIS_URL: redis://redis:6379
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: true
+      AUDIT_LOG_ENABLED: true
+      TENANT_CACHE_TTL: 300
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Worker Configuration
+      WORKER_CONCURRENCY: 10
+      WORKER_MAX_RETRIES: 3
+      # Monitoring
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://prometheus:4318
+      OTEL_SERVICE_NAME: dittofeed-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.8'
+        reservations:
+          memory: 512M
+          cpus: '0.4'
+
+  # Cloudflare Tunnel Daemon
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: dittofeed_cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+    volumes:
+      - ./config/cloudflare:/etc/cloudflared:ro
+    depends_on:
+      - api
+      - dashboard
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dittofeed_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Grafana for Monitoring Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dittofeed_grafana
+    ports:
+      - "3002:3000"  # Changed port to avoid conflict
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SERVER_ROOT_URL: https://${DOMAIN}/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: true
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+          cpus: '0.15'
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  dittofeed_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
