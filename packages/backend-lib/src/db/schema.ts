@@ -748,6 +748,11 @@ export const segment = pgTable(
       .notNull(),
   },
   (table) => [
+    index("idx_segment_workspace_perf").on(
+      table.workspaceId,
+      table.status,
+      table.definitionUpdatedAt,
+    ),
     index("Segment_resourceType_idx").using(
       "btree",
       table.resourceType.asc().nullsLast().op("enum_ops"),
@@ -862,6 +867,11 @@ export const journey = pgTable(
     statusUpdatedAt: timestamp({ precision: 3, mode: "date" }),
   },
   (table) => [
+    index("idx_journey_workspace_perf").on(
+      table.workspaceId,
+      table.status,
+      table.updatedAt,
+    ),
     uniqueIndex("Journey_workspaceId_name_key").using(
       "btree",
       table.workspaceId.asc().nullsLast().op("uuid_ops"), // Change from text_ops
@@ -1074,5 +1084,81 @@ export const workspaceOccupantSetting = pgTable(
     })
       .onUpdate("cascade")
       .onDelete("set null"),
+  ],
+);
+
+// Multitenancy Enhancement Tables
+
+export const workspaceQuota = pgTable(
+  "WorkspaceQuota",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull(),
+    maxUsers: integer().default(1000).notNull(),
+    maxSegments: integer().default(50).notNull(),
+    maxJourneys: integer().default(20).notNull(),
+    maxTemplates: integer().default(100).notNull(),
+    maxStorageBytes: integer().default(10737418240).notNull(), // 10GB default
+    maxMessagesPerMonth: integer().default(100000).notNull(),
+    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp({ precision: 3, mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("WorkspaceQuota_workspaceId_key").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+    ),
+    index("idx_workspace_quota_workspace_perf").on(
+      table.workspaceId,
+      table.updatedAt,
+    ),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "WorkspaceQuota_workspaceId_fkey",
+    })
+      .onUpdate("cascade")
+      .onDelete("cascade"),
+  ],
+);
+
+export const tenantMetrics = pgTable(
+  "TenantMetrics",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    workspaceId: uuid().notNull(),
+    timestamp: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+    userCount: integer().default(0).notNull(),
+    segmentCount: integer().default(0).notNull(),
+    journeyCount: integer().default(0).notNull(),
+    templateCount: integer().default(0).notNull(),
+    storageUsedBytes: integer().default(0).notNull(),
+    messagesThisMonth: integer().default(0).notNull(),
+    databaseQueryCount: integer().default(0).notNull(),
+    cacheHitRate: integer().default(0).notNull(), // Stored as percentage * 100 for precision
+    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp({ precision: 3, mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("idx_tenant_metrics_workspace_time").on(
+      table.workspaceId,
+      table.timestamp,
+    ),
+    index("idx_tenant_metrics_timestamp").on(
+      table.timestamp,
+    ),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "TenantMetrics_workspaceId_fkey",
+    })
+      .onUpdate("cascade")
+      .onDelete("cascade"),
   ],
 );

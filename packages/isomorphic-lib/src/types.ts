@@ -5731,3 +5731,120 @@ export interface UserEventV2 {
   message_raw: string;
   workspace_id: string;
 }
+
+// Multitenancy Resource Quota Types
+export const WorkspaceQuota = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  workspaceId: Type.String({ format: "uuid" }),
+  maxUsers: Type.Number({ minimum: 0 }),
+  maxSegments: Type.Number({ minimum: 1 }),
+  maxJourneys: Type.Number({ minimum: 1 }),
+  maxTemplates: Type.Number({ minimum: 1 }),
+  maxStorageBytes: Type.Number({ minimum: 0 }),
+  maxMessagesPerMonth: Type.Number({ minimum: 0 }),
+  createdAt: Type.String({ format: "date-time" }),
+  updatedAt: Type.String({ format: "date-time" }),
+});
+
+export type WorkspaceQuota = Static<typeof WorkspaceQuota>;
+
+export const UpsertWorkspaceQuotaRequest = Type.Object({
+  workspaceId: Type.String({ format: "uuid" }),
+  maxUsers: Type.Optional(Type.Number({ minimum: 0 })),
+  maxSegments: Type.Optional(Type.Number({ minimum: 1 })),
+  maxJourneys: Type.Optional(Type.Number({ minimum: 1 })),
+  maxTemplates: Type.Optional(Type.Number({ minimum: 1 })),
+  maxStorageBytes: Type.Optional(Type.Number({ minimum: 0 })),
+  maxMessagesPerMonth: Type.Optional(Type.Number({ minimum: 0 })),
+});
+
+export type UpsertWorkspaceQuotaRequest = Static<typeof UpsertWorkspaceQuotaRequest>;
+
+export const GetWorkspaceQuotaRequest = Type.Object({
+  workspaceId: Type.String({ format: "uuid" }),
+});
+
+export type GetWorkspaceQuotaRequest = Static<typeof GetWorkspaceQuotaRequest>;
+
+export const GetWorkspaceQuotaResponse = Type.Object({
+  quota: Nullable(WorkspaceQuota),
+});
+
+export type GetWorkspaceQuotaResponse = Static<typeof GetWorkspaceQuotaResponse>;
+
+// Tenant Metrics Types
+export const TenantMetrics = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  workspaceId: Type.String({ format: "uuid" }),
+  timestamp: Type.String({ format: "date-time" }),
+  userCount: Type.Number({ minimum: 0 }),
+  segmentCount: Type.Number({ minimum: 0 }),
+  journeyCount: Type.Number({ minimum: 0 }),
+  templateCount: Type.Number({ minimum: 0 }),
+  storageUsedBytes: Type.Number({ minimum: 0 }),
+  messagesThisMonth: Type.Number({ minimum: 0 }),
+  databaseQueryCount: Type.Number({ minimum: 0 }),
+  cacheHitRate: Type.Number({ minimum: 0, maximum: 1 }),
+});
+
+export type TenantMetrics = Static<typeof TenantMetrics>;
+
+export const GetTenantMetricsRequest = Type.Object({
+  workspaceId: Type.String({ format: "uuid" }),
+  startDate: Type.Optional(Type.String({ format: "date-time" })),
+  endDate: Type.Optional(Type.String({ format: "date-time" })),
+  granularity: Type.Optional(Type.Union([
+    Type.Literal("hour"),
+    Type.Literal("day"),
+    Type.Literal("week"),
+    Type.Literal("month"),
+  ])),
+});
+
+export type GetTenantMetricsRequest = Static<typeof GetTenantMetricsRequest>;
+
+export const GetTenantMetricsResponse = Type.Object({
+  metrics: Type.Array(TenantMetrics),
+});
+
+export type GetTenantMetricsResponse = Static<typeof GetTenantMetricsResponse>;
+
+// Quota Validation Types
+export const QuotaResourceTypeEnum = {
+  Users: "users",
+  Segments: "segments", 
+  Journeys: "journeys",
+  Templates: "templates",
+  Storage: "storage",
+  Messages: "messages",
+} as const;
+
+export const QuotaResourceType = Type.KeyOf(Type.Const(QuotaResourceTypeEnum));
+export type QuotaResourceType = Static<typeof QuotaResourceType>;
+
+export const QuotaValidationRequest = Type.Object({
+  workspaceId: Type.String({ format: "uuid" }),
+  resourceType: QuotaResourceType,
+  increment: Type.Optional(Type.Number({ minimum: 1 })),
+});
+
+export type QuotaValidationRequest = Static<typeof QuotaValidationRequest>;
+
+export const QuotaValidationResponse = Type.Object({
+  allowed: Type.Boolean(),
+  currentUsage: Type.Number({ minimum: 0 }),
+  limit: Type.Number({ minimum: 0 }),
+  remaining: Type.Number({ minimum: 0 }),
+});
+
+export type QuotaValidationResponse = Static<typeof QuotaValidationResponse>;
+
+export const QuotaError = Type.Object({
+  type: Type.Literal("QuotaExceeded"),
+  message: Type.String(),
+  resourceType: QuotaResourceType,
+  currentUsage: Type.Number(),
+  limit: Type.Number(),
+});
+
+export type QuotaError = Static<typeof QuotaError>;

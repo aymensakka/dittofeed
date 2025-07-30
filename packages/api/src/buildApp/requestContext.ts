@@ -1,4 +1,5 @@
 import backendConfig from "backend-lib/src/config";
+import { setWorkspaceContext } from "backend-lib/src/db/policies";
 import logger from "backend-lib/src/logger";
 import { getRequestContext, SESSION_KEY } from "backend-lib/src/requestContext";
 import {
@@ -84,6 +85,23 @@ const requestContext = fp(async (fastify: FastifyInstance) => {
         "workspace id does not match",
       );
       return reply.status(403).send();
+    }
+
+    // Set workspace context for RLS (Row-Level Security)
+    // This enables database-level tenant isolation for all subsequent queries
+    try {
+      await setWorkspaceContext(workspaceId);
+      logger().debug(
+        { workspaceId },
+        "Set RLS workspace context for request"
+      );
+    } catch (error) {
+      logger().error(
+        { error, workspaceId },
+        "Failed to set RLS workspace context"
+      );
+      // Don't fail the request, but log the error
+      // RLS policies will deny access if context is not set properly
     }
 
     request.requestContext.set("workspace", workspace);
