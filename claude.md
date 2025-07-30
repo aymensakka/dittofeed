@@ -1,0 +1,75 @@
+# Claude Code Global Rules & Conventions
+
+## Project Overview
+- **Project**: Dittofeed - Open-source customer engagement platform
+- **Architecture**: TypeScript monorepo with Yarn workspaces
+- **Tech Stack**: Fastify, Next.js, Drizzle ORM, PostgreSQL, ClickHouse
+- **Testing**: Jest with TypeScript
+- **Linting**: ESLint + Prettier
+
+## Development Rules
+
+### File Organization
+- **Packages**: All code in `packages/` directory
+  - `api/` - Fastify API server
+  - `dashboard/` - Next.js frontend
+  - `backend-lib/` - Shared backend utilities
+  - `isomorphic-lib/` - Shared types and utilities
+  - `worker/` - Background job processing
+  - `lite/` - Lightweight deployment
+
+### Code Standards
+- **TypeScript**: Strict mode enabled, proper typing required
+- **Imports**: Use absolute imports with path mapping
+- **Error Handling**: Use neverthrow Result types for error handling
+- **Database**: Use Drizzle ORM with schema-first approach
+- **API**: Follow Fastify patterns with TypeBox validation
+
+### Testing Requirements
+- **Unit Tests**: Jest with ts-jest configuration
+- **Test Location**: Co-located with source files or in `test/` directories
+- **Coverage**: Aim for >80% coverage on new code
+- **Test Command**: `yarn test` or `npm test`
+
+### Database & Migrations
+- **Schema**: Defined in `packages/backend-lib/src/db/schema.ts`
+- **Migrations**: Generated with Drizzle Kit in `packages/backend-lib/drizzle/`
+- **Workspace Isolation**: All tables include `workspaceId` for multitenancy
+
+### Multitenancy Architecture
+- **Current State**: Workspace-based isolation with hierarchical support
+- **Auth Modes**: `anonymous`, `single-tenant`, `multi-tenant`
+- **Workspace Types**: `Root`, `Child`, `Parent`
+- **Request Context**: Workspace resolution from headers/body/query
+
+### API Conventions
+- **Authentication**: JWT tokens, write keys, workspace member roles
+- **Workspace Context**: Required in request headers or body
+- **Error Responses**: Standardized JSON error format
+- **Validation**: TypeBox schemas for all endpoints
+
+### Performance Guidelines
+- **Database**: Use indexes for workspace-scoped queries
+- **Caching**: Redis for session and computed property caching
+- **Background Jobs**: Temporal.io for workflow orchestration
+- **Monitoring**: OpenTelemetry integration
+
+### Security Requirements
+- **Workspace Isolation**: Strict tenant data separation
+- **API Keys**: Scoped to specific workspaces
+- **Secrets**: Encrypted storage in database
+- **RBAC**: Role-based access control with workspace member roles
+
+## Development Workflow
+1. **Feature Development**: Follow TDD approach
+2. **Database Changes**: Create migrations first
+3. **API Changes**: Update TypeBox schemas
+4. **Testing**: Unit tests before implementation
+5. **Integration**: Test across workspace boundaries
+
+## Never Do
+- Skip workspace validation in API endpoints
+- Mix tenant data in queries
+- Hardcode workspace IDs
+- Bypass authentication in multi-tenant mode
+- Create database queries without workspace scoping

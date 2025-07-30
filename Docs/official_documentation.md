@@ -1,0 +1,1 @@
+official documentation is here https://docs.dittofeed.com/introduction 
