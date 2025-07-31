@@ -22,52 +22,27 @@ This comprehensive guide covers the complete production deployment process for D
 - `mail.com.caramelme.com` - Email service
 - `storage.com.caramelme.com` - File storage
 
-## 🌐 DNS Configuration Options
+## 🌐 DNS Configuration with Cloudflare Zero Trust
 
-You have two deployment approaches based on your current GoDaddy A records:
+### Cloudflare Zero Trust Setup (Required)
 
-### Option 1: Traditional Server Deployment (Current Setup)
+**Why Cloudflare Zero Trust Only:**
+- ✅ Automatic SSL/TLS certificates (no manual cert management)
+- ✅ Enterprise-grade DDoS protection and WAF
+- ✅ Zero Trust access controls with identity verification
+- ✅ Global CDN for optimal performance
+- ✅ No exposed server ports (enhanced security)
+- ✅ Built-in monitoring and analytics
+- ✅ Simplified deployment (no reverse proxy needed)
 
-**Pros:**
-- Use your existing GoDaddy A records
-- Full control over server infrastructure
-- No dependency on Cloudflare tunnel
+**Note:** This deployment uses ONLY Cloudflare Zero Trust. Traditional server deployments with reverse proxies (nginx, Apache, etc.) are NOT supported or recommended for security and simplicity.
 
-**Cons:**
-- Manual SSL certificate management
-- No Cloudflare Zero Trust features
-- Manual load balancing and security
-
-**DNS Configuration (GoDaddy):**
-```bash
-# Your current A records in GoDaddy:
-dashboard.com.caramelme.com → A → YOUR_SERVER_IP
-api.com.caramelme.com → A → YOUR_SERVER_IP
-grafana.com.caramelme.com → A → YOUR_SERVER_IP
-prometheus.com.caramelme.com → A → YOUR_SERVER_IP
-worker.com.caramelme.com → A → YOUR_SERVER_IP
-# ... (all other subdomains)
-```
-
-### Option 2: Cloudflare Zero Trust (Recommended)
-
-**Pros:**
-- Automatic SSL/TLS certificates
-- DDoS protection and security
-- Zero Trust access controls
-- Global CDN and performance
-- No need to expose server ports
-
-**Cons:**
-- Requires moving DNS to Cloudflare
-- Dependency on Cloudflare service
-
-**Migration Steps:**
+**Setup Steps:**
 1. **Add Domain to Cloudflare:**
    ```bash
    # Go to Cloudflare Dashboard → Add Site
    # Enter: caramelme.com
-   # Choose Free or Pro plan
+   # Choose Free or Pro plan (Pro recommended for production)
    ```
 
 2. **Update Nameservers in GoDaddy:**
@@ -87,6 +62,14 @@ worker.com.caramelme.com → A → YOUR_SERVER_IP
    Type: CNAME | Name: prometheus.com | Content: tunnel-id.cfargotunnel.com | Proxied: Yes
    Type: CNAME | Name: worker.com | Content: tunnel-id.cfargotunnel.com | Proxied: Yes
    ```
+
+**Benefits of Cloudflare Zero Trust:**
+- ✅ Automatic SSL/TLS certificates
+- ✅ DDoS protection and WAF
+- ✅ Zero Trust access controls
+- ✅ Global CDN and performance optimization
+- ✅ No exposed server ports
+- ✅ Built-in security monitoring
 
 ## 🚀 Quick Start Deployment
 
@@ -123,7 +106,7 @@ docker-compose --version
 
 1. **Clone Repository:**
    ```bash
-   git clone https://github.com/your-org/dittofeed.git
+   git clone https://github.com/aymensakka/dittofeed.git
    cd dittofeed
    ```
 
@@ -174,93 +157,49 @@ docker-compose --version
    openssl rand -base64 16  # For database/redis passwords
    ```
 
-## 🔧 Deployment Options
+## 🔧 Deployment Process
 
-### Option A: Traditional Server Deployment
+### Cloudflare Zero Trust Deployment
 
-**For GoDaddy A Records (Current Setup):**
-
-1. **Disable Cloudflare Tunnel:**
+1. **Create Cloudflare Tunnel:**
    ```bash
-   # Edit docker-compose.prod.yaml
-   # Comment out or remove the cloudflared service
+   # In Cloudflare Zero Trust Dashboard:
+   # 1. Go to Access → Tunnels
+   # 2. Create a new tunnel named 'dittofeed-production'
+   # 3. Copy the tunnel token (starts with 'eyJ...')
+   # 4. Add to .env.prod.local as CF_TUNNEL_TOKEN
    
-   # Or use a modified compose file without tunnel
-   cp docker-compose.prod.yaml docker-compose.server.yaml
-   # Remove cloudflared service from the file
+   # For detailed instructions see:
+   # config/cloudflare/setup-instructions.md
    ```
 
-2. **Configure Reverse Proxy (Nginx):**
+2. **Configure Environment:**
    ```bash
-   # Install Nginx on host
-   sudo apt install nginx certbot python3-certbot-nginx
+   # Edit .env.prod.local and ensure these are set:
+   CF_TUNNEL_TOKEN=your-cloudflare-tunnel-token-here
+   DOMAIN=caramelme.com
    
-   # Configure SSL certificates
-   sudo certbot --nginx -d dashboard.com.caramelme.com
-   sudo certbot --nginx -d api.com.caramelme.com
-   sudo certbot --nginx -d grafana.com.caramelme.com
-   sudo certbot --nginx -d prometheus.com.caramelme.com
-   sudo certbot --nginx -d worker.com.caramelme.com
+   # Also set all security credentials (see Configuration Setup section)
    ```
 
 3. **Deploy Services:**
    ```bash
-   # Deploy without Cloudflare tunnel
+   # Full deployment with automatic backup
+   ./deploy.sh deploy
+   
+   # Or deploy without backup (faster)
    ./deploy.sh deploy --skip-backup
    ```
 
-4. **Nginx Configuration Example:**
-   ```nginx
-   # /etc/nginx/sites-available/dashboard.com.caramelme.com
-   server {
-       listen 80;
-       server_name dashboard.com.caramelme.com;
-       return 301 https://$server_name$request_uri;
-   }
+4. **Configure Zero Trust Access Policies:**
+   ```bash
+   # In Cloudflare Zero Trust Dashboard:
+   # 1. Go to Access → Applications
+   # 2. Create applications for each subdomain
+   # 3. Set access policies (see Security Configuration section)
    
-   server {
-       listen 443 ssl http2;
-       server_name dashboard.com.caramelme.com;
-       
-       ssl_certificate /etc/letsencrypt/live/dashboard.com.caramelme.com/fullchain.pem;
-       ssl_certificate_key /etc/letsencrypt/live/dashboard.com.caramelme.com/privkey.pem;
-       
-       location / {
-           proxy_pass http://localhost:3001;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-       }
-   }
-   ```
-
-### Option B: Cloudflare Zero Trust Deployment
-
-**For Cloudflare Tunnel (Recommended):**
-
-1. **Set Up Cloudflare Tunnel:**
-   ```bash
-   # Follow detailed instructions in:
-   # config/cloudflare/setup-instructions.md
-   
-   # Get tunnel token from Cloudflare Zero Trust dashboard
-   # Add to .env.prod.local as CF_TUNNEL_TOKEN
-   ```
-
-2. **Deploy with Tunnel:**
-   ```bash
-   # Full deployment with Cloudflare tunnel
-   ./deploy.sh deploy
-   ```
-
-3. **Configure Zero Trust Policies:**
-   ```bash
-   # Import policies from:
+   # Or import pre-configured policies:
    # config/cloudflare/zero-trust-policies.json
-   
-   # Or manually create in Cloudflare dashboard:
-   # Access → Applications → Add Application
    ```
 
 ## 🔍 Deployment Verification
@@ -317,19 +256,21 @@ docker-compose --version
 
 ### Access URLs Testing
 
-**Production URLs:**
+**Production URLs (via Cloudflare Zero Trust):**
 - **Dashboard**: https://dashboard.com.caramelme.com
 - **API**: https://api.com.caramelme.com
 - **API Health**: https://api.com.caramelme.com/health
-- **Grafana**: https://grafana.com.caramelme.com
-- **Prometheus**: https://prometheus.com.caramelme.com
+- **Grafana**: https://grafana.com.caramelme.com (restricted access)
+- **Prometheus**: https://prometheus.com.caramelme.com (restricted access)
 
-**Local Testing URLs:**
+**Local Testing URLs (for debugging only):**
 - **Dashboard**: http://localhost:3001
 - **API**: http://localhost:3000
 - **API Health**: http://localhost:3000/health
 - **Grafana**: http://localhost:3002
 - **Prometheus**: http://localhost:9090
+
+**Important:** Production access MUST go through Cloudflare Zero Trust URLs. Direct server access should be blocked by firewall rules.
 
 ## 🛡️ Security Configuration
 
@@ -637,12 +578,11 @@ openssl s_client -connect dashboard.com.caramelme.com:443
 
 **Solutions:**
 
-**For GoDaddy A Records:**
+**DNS Issues:**
 ```bash
-# Verify A records point to correct IP
-# Update server IP if changed
-# Renew SSL certificates if expired
-sudo certbot renew
+# Verify CNAME records in Cloudflare dashboard
+# Check tunnel status in Zero Trust → Tunnels
+# Ensure tunnel is showing as 'Active'
 ```
 
 **For Cloudflare Tunnel:**
