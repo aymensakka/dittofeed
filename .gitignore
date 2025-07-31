@@ -71,6 +71,13 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.local
+.env.prod
+.env.prod.local
+.env.production
+.env.production.local
+.env.staging
+.env.staging.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -149,3 +156,34 @@ mnt/*
 !.tmp/.gitkeep
 
 .editorconfig
+
+# Cloudflare tunnel credentials and configuration
+.cloudflared/
+cloudflared.log
+
+# Docker volumes and data
+postgres_data/
+redis_data/
+prometheus_data/
+grafana_data/
+
+# Backup files
+backups/
+*.sql.gz
+*.sql.bak
+
+# SSL certificates and keys
+ssl/
+*.pem
+*.key
+*.crt
+*.p12
+
+# Deployment secrets
+secrets/
+config/secrets/
+
+# Log files
+*.log
+logs/
+cloudflared.log

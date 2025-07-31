@@ -15,8 +15,6 @@ services:
       - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
       - ./packages/backend-lib/drizzle:/docker-entrypoint-initdb.d/migrations
-    ports:
-      - "5432:5432"
     networks:
       - dittofeed_network
     restart: unless-stopped
@@ -39,11 +37,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: dittofeed_redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
       - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
-    ports:
-      - "6379:6379"
     networks:
       - dittofeed_network
     restart: unless-stopped
@@ -52,7 +50,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
     deploy:
       resources:
         limits:
@@ -62,37 +60,61 @@ services:
           memory: 512M
           cpus: '0.25'
 
-  # Dittofeed API Server (Load balanced by Cloudflare)
+  # Dittofeed API Server
   api:
     build:
       context: .
-      dockerfile: packages/api/Dockerfile.prod
+      dockerfile: packages/api/Dockerfile
+    image: dittofeed/api:prod
     container_name: dittofeed_api
     environment:
+      # Basic Configuration
       NODE_ENV: production
-      DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
-      REDIS_URL: redis://redis:6379
       PORT: 3000
-      # Enterprise Multitenancy Settings
-      ENABLE_RLS_ENFORCEMENT: true
-      AUDIT_LOG_ENABLED: true
-      AUDIT_LOG_RETENTION_DAYS: 90
-      TENANT_CACHE_TTL: 300
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30000}
+      
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_POOL_SIZE: ${REDIS_POOL_SIZE:-10}
+      
+      # Domain Configuration
+      DOMAIN: ${DOMAIN}
+      API_BASE_URL: ${API_BASE_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      
       # Security Configuration
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      # Performance Settings
-      DB_POOL_SIZE: 20
-      DB_POOL_TIMEOUT: 30000
-      REDIS_POOL_SIZE: 10
+      
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: ${ENABLE_RLS_ENFORCEMENT:-true}
+      AUDIT_LOG_ENABLED: ${AUDIT_LOG_ENABLED:-true}
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-90}
+      TENANT_CACHE_TTL: ${TENANT_CACHE_TTL:-300}
+      AUTH_MODE: ${AUTH_MODE:-multi-tenant}
+      
+      # Workspace Configuration
+      DEFAULT_WORKSPACE_NAME: ${DEFAULT_WORKSPACE_NAME:-Default Workspace}
+      ENABLE_WORKSPACE_CREATION: ${ENABLE_WORKSPACE_CREATION:-true}
+      
+      # Email Provider Settings (optional)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      AWS_SES_REGION: ${AWS_SES_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      
       # Monitoring
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://prometheus:4318
-      OTEL_SERVICE_NAME: dittofeed-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://prometheus:4318}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-dittofeed-api}
+      MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
+      
       # Cloudflare Configuration
-      CF_TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
-      TRUSTED_PROXIES: 173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22
-    ports:
-      - "3000:3000"  # Exposed for Cloudflare Tunnel
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22}
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,17 +141,29 @@ services:
   dashboard:
     build:
       context: .
-      dockerfile: packages/dashboard/Dockerfile.prod
+      dockerfile: packages/dashboard/Dockerfile
+    image: dittofeed/dashboard:prod
     container_name: dittofeed_dashboard
     environment:
+      # Basic Configuration
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
-      NEXTAUTH_URL: https://${DOMAIN}
+      PORT: 3000
+      
+      # API Configuration
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-${NEXT_PUBLIC_API_URL}}
+      
+      # Authentication
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       JWT_SECRET: ${JWT_SECRET}
-      CF_TUNNEL_TOKEN: ${CF_DASHBOARD_TUNNEL_TOKEN}
-    ports:
-      - "3001:3000"  # Exposed for Cloudflare Tunnel
+      
+      # Feature Flags
+      NEXT_PUBLIC_ENABLE_MULTITENANCY: ${NEXT_PUBLIC_ENABLE_MULTITENANCY:-true}
+      NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-multi-tenant}
+      
+      # Monitoring
+      NEXT_PUBLIC_MONITORING_ENABLED: ${NEXT_PUBLIC_MONITORING_ENABLED:-true}
     depends_on:
       - api
     networks:
@@ -153,25 +187,41 @@ services:
   worker:
     build:
       context: .
-      dockerfile: packages/worker/Dockerfile.prod
+      dockerfile: packages/worker/Dockerfile
+    image: dittofeed/worker:prod
     container_name: dittofeed_worker
     environment:
+      # Basic Configuration
       NODE_ENV: production
+      PORT: 3003
+      
+      # Database Configuration
       DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
-      REDIS_URL: redis://redis:6379
-      # Enterprise Multitenancy Settings
-      ENABLE_RLS_ENFORCEMENT: true
-      AUDIT_LOG_ENABLED: true
-      TENANT_CACHE_TTL: 300
+      
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      
       # Security Configuration
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: ${ENABLE_RLS_ENFORCEMENT:-true}
+      AUDIT_LOG_ENABLED: ${AUDIT_LOG_ENABLED:-true}
+      TENANT_CACHE_TTL: ${TENANT_CACHE_TTL:-300}
+      
       # Worker Configuration
-      WORKER_CONCURRENCY: 10
-      WORKER_MAX_RETRIES: 3
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-10}
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
+      WORKER_QUEUE_NAME: ${WORKER_QUEUE_NAME:-dittofeed-jobs}
+      
+      # Temporal Configuration (if using)
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+      
       # Monitoring
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://prometheus:4318
-      OTEL_SERVICE_NAME: dittofeed-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://prometheus:4318}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-dittofeed-worker}
     depends_on:
       postgres:
         condition: service_healthy
@@ -189,21 +239,21 @@ services:
           memory: 512M
           cpus: '0.4'
 
-  # Cloudflare Tunnel Daemon
+  # Cloudflare Tunnel - Routes traffic from Cloudflare to local services
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: dittofeed_cloudflared
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
     environment:
-      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
-    volumes:
-      - ./config/cloudflare:/etc/cloudflared:ro
+      TUNNEL_METRICS: 0.0.0.0:2000
+    restart: unless-stopped
+    networks:
+      - dittofeed_network
     depends_on:
       - api
       - dashboard
-    networks:
-      - dittofeed_network
-    restart: unless-stopped
+      - grafana
+      - prometheus
     deploy:
       resources:
         limits:
@@ -217,8 +267,6 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: dittofeed_prometheus
-    ports:
-      - "9090:9090"
     volumes:
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -245,13 +293,21 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: dittofeed_grafana
-    ports:
-      - "3002:3000"  # Changed port to avoid conflict
     environment:
+      # Admin Configuration
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
-      GF_USERS_ALLOW_SIGN_UP: false
-      GF_SERVER_ROOT_URL: https://${DOMAIN}/grafana
-      GF_SERVER_SERVE_FROM_SUB_PATH: true
+      GF_USERS_ALLOW_SIGN_UP: ${GF_USERS_ALLOW_SIGN_UP:-false}
+      
+      # Server Configuration
+      GF_SERVER_DOMAIN: ${DOMAIN}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.com.${DOMAIN}}
+      
+      # Anonymous Access
+      GF_AUTH_ANONYMOUS_ENABLED: ${GF_AUTH_ANONYMOUS_ENABLED:-false}
+      
+      # Database (uses sqlite by default)
+      GF_DATABASE_TYPE: ${GF_DATABASE_TYPE:-sqlite3}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
