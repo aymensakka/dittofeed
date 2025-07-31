@@ -98,7 +98,7 @@ services:
       AUTH_MODE: ${AUTH_MODE:-multi-tenant}
       
       # Workspace Configuration
-      DEFAULT_WORKSPACE_NAME: ${DEFAULT_WORKSPACE_NAME:-Default Workspace}
+      DEFAULT_WORKSPACE_NAME: "${DEFAULT_WORKSPACE_NAME:-Default Workspace}"
       ENABLE_WORKSPACE_CREATION: ${ENABLE_WORKSPACE_CREATION:-true}
       
       # Email Provider Settings (optional)
@@ -151,7 +151,7 @@ services:
       
       # API Configuration
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-${NEXT_PUBLIC_API_URL}}
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://api.com.caramelme.com}
       
       # Authentication
       NEXTAUTH_URL: ${NEXTAUTH_URL}
@@ -301,7 +301,7 @@ services:
       
       # Server Configuration
       GF_SERVER_DOMAIN: ${DOMAIN}
-      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.com.${DOMAIN}}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.com.caramelme.com}
       
       # Anonymous Access
       GF_AUTH_ANONYMOUS_ENABLED: ${GF_AUTH_ANONYMOUS_ENABLED:-false}
