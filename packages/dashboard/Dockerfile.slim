@@ -1,0 +1,24 @@
+# Slim Dockerfile for dashboard - optimized for slow connections
+FROM node:20-slim
+
+ARG APP_VERSION=local
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only essential files (no .yarn cache)
+COPY packages/dashboard/.next/standalone ./
+COPY packages/dashboard/.next/static ./.next/static
+COPY packages/dashboard/public ./public
+
+# Set environment
+ENV NODE_ENV=production
+ENV APP_VERSION=${APP_VERSION}
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
