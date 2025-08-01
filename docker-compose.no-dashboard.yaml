@@ -1,0 +1,250 @@
+version: '3.8'
+
+# Docker Compose configuration without dashboard service
+# Use this while dashboard image is being transferred
+
+# Docker Registry Authentication for Nexus
+x-docker-registry: &docker-registry
+  auth:
+    username: ${DOCKER_REGISTRY_USERNAME}
+    password: ${DOCKER_REGISTRY_PASSWORD}
+
+services:
+  # PostgreSQL Database with Enterprise Multitenancy
+  postgres:
+    image: postgres:15-alpine
+    container_name: dittofeed_postgres
+    environment:
+      POSTGRES_DB: dittofeed
+      POSTGRES_USER: dittofeed
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./packages/backend-lib/drizzle:/docker-entrypoint-initdb.d/migrations
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+
+  # Redis Cache for Workspace-Scoped Caching
+  redis:
+    image: redis:7-alpine
+    container_name: dittofeed_redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+
+  # Dittofeed API Server
+  api:
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
+    container_name: dittofeed_api
+    <<: *docker-registry
+    environment:
+      # Basic Configuration
+      NODE_ENV: production
+      PORT: 3000
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30000}
+      
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_POOL_SIZE: ${REDIS_POOL_SIZE:-10}
+      
+      # Domain Configuration
+      DOMAIN: ${DOMAIN}
+      API_BASE_URL: ${API_BASE_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: ${ENABLE_RLS_ENFORCEMENT:-true}
+      AUDIT_LOG_ENABLED: ${AUDIT_LOG_ENABLED:-true}
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-90}
+      TENANT_CACHE_TTL: ${TENANT_CACHE_TTL:-300}
+      AUTH_MODE: ${AUTH_MODE:-multi-tenant}
+      
+      # Workspace Configuration
+      DEFAULT_WORKSPACE_NAME: "${DEFAULT_WORKSPACE_NAME:-Default Workspace}"
+      ENABLE_WORKSPACE_CREATION: ${ENABLE_WORKSPACE_CREATION:-true}
+      
+      # Email Provider Settings (optional)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      
+      # Monitoring
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://prometheus:4318}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-dittofeed-api}
+      MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Background Worker for Job Processing
+  worker:
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
+    container_name: dittofeed_worker
+    <<: *docker-registry
+    environment:
+      # Basic Configuration
+      NODE_ENV: production
+      PORT: 3003
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://dittofeed:${POSTGRES_PASSWORD}@postgres:5432/dittofeed
+      
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: ${ENABLE_RLS_ENFORCEMENT:-true}
+      AUDIT_LOG_ENABLED: ${AUDIT_LOG_ENABLED:-true}
+      TENANT_CACHE_TTL: ${TENANT_CACHE_TTL:-300}
+      
+      # Worker Configuration
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-10}
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
+      WORKER_QUEUE_NAME: ${WORKER_QUEUE_NAME:-dittofeed-jobs}
+      
+      # Monitoring
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://prometheus:4318}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-dittofeed-worker}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+
+  # Dashboard service commented out - to be added after image is pushed
+  # dashboard:
+  #   image: docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
+  #   container_name: dittofeed_dashboard
+  #   <<: *docker-registry
+  #   environment:
+  #     NODE_ENV: production
+  #     PORT: 3000
+  #     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+  #     NEXTAUTH_URL: ${NEXTAUTH_URL}
+  #     NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+  #     JWT_SECRET: ${JWT_SECRET}
+  #     NEXT_PUBLIC_ENABLE_MULTITENANCY: ${NEXT_PUBLIC_ENABLE_MULTITENANCY:-true}
+  #     NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-multi-tenant}
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - dittofeed_network
+  #   restart: unless-stopped
+
+  # Cloudflare Tunnel (if using)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: dittofeed_cloudflared
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+    environment:
+      TUNNEL_METRICS: 0.0.0.0:2000
+    restart: unless-stopped
+    networks:
+      - dittofeed_network
+    depends_on:
+      - api
+      # - dashboard  # Uncomment when dashboard is available
+      - grafana
+      - prometheus
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dittofeed_prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+
+  # Grafana for Monitoring Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dittofeed_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: ${GF_USERS_ALLOW_SIGN_UP:-false}
+      GF_SERVER_DOMAIN: ${DOMAIN}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://grafana.com.caramelme.com}
+      GF_AUTH_ANONYMOUS_ENABLED: ${GF_AUTH_ANONYMOUS_ENABLED:-false}
+      GF_DATABASE_TYPE: ${GF_DATABASE_TYPE:-sqlite3}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  dittofeed_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
