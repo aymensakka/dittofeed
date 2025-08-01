@@ -62,10 +62,7 @@ services:
 
   # Dittofeed API Server
   api:
-    build:
-      context: .
-      dockerfile: packages/api/Dockerfile
-    image: dittofeed/api:prod
+    image: registry.reactmotion.com:8082/dittofeed/api:multitenancy-redis-v1
     container_name: dittofeed_api
     environment:
       # Basic Configuration
@@ -139,10 +136,7 @@ services:
 
   # Dittofeed Dashboard (Next.js Frontend)
   dashboard:
-    build:
-      context: .
-      dockerfile: packages/dashboard/Dockerfile
-    image: dittofeed/dashboard:prod
+    image: registry.reactmotion.com:8082/dittofeed/dashboard:multitenancy-redis-v1
     container_name: dittofeed_dashboard
     environment:
       # Basic Configuration
@@ -185,10 +179,7 @@ services:
 
   # Background Worker for Job Processing
   worker:
-    build:
-      context: .
-      dockerfile: packages/worker/Dockerfile
-    image: dittofeed/worker:prod
+    image: registry.reactmotion.com:8082/dittofeed/worker:multitenancy-redis-v1
     container_name: dittofeed_worker
     environment:
       # Basic Configuration
