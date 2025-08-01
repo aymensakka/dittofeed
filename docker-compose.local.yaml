@@ -1,0 +1,236 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with Enterprise Multitenancy
+  postgres:
+    image: postgres:15-alpine
+    container_name: dittofeed_postgres_local
+    environment:
+      POSTGRES_DB: dittofeed
+      POSTGRES_USER: dittofeed
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache for Workspace-Scoped Caching
+  redis:
+    image: redis:7-alpine
+    container_name: dittofeed_redis_local
+    environment:
+      REDIS_PASSWORD: password123
+    volumes:
+      - redis_data_local:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --requirepass password123
+
+  # Dittofeed API Server
+  api:
+    image: dittofeed-api:local-redis
+    container_name: dittofeed_api_local
+    environment:
+      # Basic Configuration
+      NODE_ENV: development
+      PORT: 3001
+      API_PORT: 3001
+      API_HOST: 0.0.0.0
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://dittofeed:password123@postgres:5432/dittofeed
+      DB_POOL_SIZE: 20
+      DB_POOL_TIMEOUT: 30000
+      
+      # Redis Configuration
+      REDIS_URL: redis://:password123@redis:6379
+      REDIS_POOL_SIZE: 10
+      
+      # ClickHouse Configuration (required by config validation)
+      CLICKHOUSE_HOST: http://localhost:8123
+      CLICKHOUSE_USER: dittofeed
+      CLICKHOUSE_PASSWORD: password123
+      CLICKHOUSE_DATABASE: dittofeed
+      
+      # Domain Configuration
+      DOMAIN: localhost
+      API_BASE_URL: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3002
+      
+      # Security Configuration
+      JWT_SECRET: local-jwt-secret-change-in-production
+      ENCRYPTION_KEY: local-encryption-key-change-in-production-32chars
+      
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: true
+      AUDIT_LOG_ENABLED: true
+      AUDIT_LOG_RETENTION_DAYS: 90
+      TENANT_CACHE_TTL: 300
+      AUTH_MODE: multi-tenant
+      
+      # Workspace Configuration
+      DEFAULT_WORKSPACE_NAME: "Default Workspace"
+      ENABLE_WORKSPACE_CREATION: true
+      
+      # Bootstrap database
+      BOOTSTRAP: true
+      
+      # Monitoring
+      MONITORING_ENABLED: false
+      OTEL_SDK_DISABLED: true
+      START_OTEL: false
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Dittofeed Dashboard (Next.js Frontend)
+  dashboard:
+    image: dittofeed-dashboard:local-redis
+    container_name: dittofeed_dashboard_local
+    environment:
+      # Basic Configuration
+      NODE_ENV: development
+      PORT: 3000
+      
+      # Database Configuration (needed for backend config validation)
+      DATABASE_URL: postgresql://dittofeed:password123@postgres:5432/dittofeed
+      
+      # ClickHouse Configuration (required by config validation)
+      CLICKHOUSE_HOST: http://localhost:8123
+      CLICKHOUSE_USER: dittofeed
+      CLICKHOUSE_PASSWORD: password123
+      CLICKHOUSE_DATABASE: dittofeed
+      
+      # Redis Configuration
+      REDIS_URL: redis://:password123@redis:6379
+      REDIS_POOL_SIZE: 10
+      TENANT_CACHE_TTL: 300
+      
+      # Auth Configuration
+      AUTH_MODE: multi-tenant
+      
+      # API Configuration
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_BASE: http://localhost:3001
+      
+      # Authentication
+      NEXTAUTH_URL: http://localhost:3002
+      NEXTAUTH_SECRET: local-nextauth-secret-change-in-production
+      JWT_SECRET: local-jwt-secret-change-in-production
+      
+      # Security Configuration
+      ENCRYPTION_KEY: local-encryption-key-change-in-production-32chars
+      
+      # Feature Flags
+      NEXT_PUBLIC_ENABLE_MULTITENANCY: true
+      NEXT_PUBLIC_AUTH_MODE: multi-tenant
+      
+      # Monitoring
+      NEXT_PUBLIC_MONITORING_ENABLED: false
+      
+      # Disable OpenTelemetry to avoid config validation
+      OTEL_SDK_DISABLED: true
+      START_OTEL: false
+    depends_on:
+      - api
+    ports:
+      - "3002:3000"
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Background Worker for Job Processing
+  worker:
+    image: dittofeed-worker:local-redis
+    container_name: dittofeed_worker_local
+    environment:
+      # Basic Configuration
+      NODE_ENV: development
+      PORT: 3003
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://dittofeed:password123@postgres:5432/dittofeed
+      
+      # ClickHouse Configuration (required by config validation)
+      CLICKHOUSE_HOST: http://localhost:8123
+      CLICKHOUSE_USER: dittofeed
+      CLICKHOUSE_PASSWORD: password123
+      CLICKHOUSE_DATABASE: dittofeed
+      
+      # Redis Configuration
+      REDIS_URL: redis://:password123@redis:6379
+      
+      # Security Configuration
+      JWT_SECRET: local-jwt-secret-change-in-production
+      ENCRYPTION_KEY: local-encryption-key-change-in-production-32chars
+      
+      # Enterprise Multitenancy Settings
+      ENABLE_RLS_ENFORCEMENT: true
+      AUDIT_LOG_ENABLED: true
+      TENANT_CACHE_TTL: 300
+      
+      # Worker Configuration
+      WORKER_CONCURRENCY: 10
+      WORKER_MAX_RETRIES: 3
+      WORKER_QUEUE_NAME: dittofeed-jobs
+      
+      # Monitoring
+      MONITORING_ENABLED: false
+      OTEL_SDK_DISABLED: true
+      START_OTEL: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dittofeed_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data_local:
+    driver: local
+  redis_data_local:
+    driver: local
+
+networks:
+  dittofeed_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
