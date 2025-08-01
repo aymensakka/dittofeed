@@ -190,3 +190,5 @@ cloudflared.log
 
 # Docker image exports
 exports/*.tar.gz
+# Coolify environment variables (contains secrets)
+COOLIFY-ENV-VARS.md
