@@ -179,10 +179,10 @@ docker-compose --version
    - Configure:
      ```
      Registry Type: Custom Docker Registry
-     Registry URL: http://registry.reactmotion.com:8081
+     Registry URL: https://docker.reactmotion.com
      Repository: my-docker-repo
-     Username: [your-nexus-username]
-     Password: [your-nexus-password]
+     Username: coolify-system
+     Password: 9sFPGGDJUFnE4z*z4Aj9
      ```
    - Click "Save"
    - Note: HTTP is enabled on this registry (port 8081)
