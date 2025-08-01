@@ -290,17 +290,17 @@ function getResourceValues(
   limits: QuotaLimits
 ): { current: number; limit: number } {
   switch (resourceType) {
-    case "users":
+    case "Users":
       return { current: usage.users, limit: limits.maxUsers };
-    case "segments":
+    case "Segments":
       return { current: usage.segments, limit: limits.maxSegments };
-    case "journeys":
+    case "Journeys":
       return { current: usage.journeys, limit: limits.maxJourneys };
-    case "templates":
+    case "Templates":
       return { current: usage.templates, limit: limits.maxTemplates };
-    case "storage":
+    case "Storage":
       return { current: usage.storageBytes, limit: limits.maxStorageBytes };
-    case "messages":
+    case "Messages":
       return { current: usage.messagesThisMonth, limit: limits.maxMessagesPerMonth };
     default:
       // TypeScript should prevent this, but handle gracefully
@@ -349,7 +349,15 @@ export async function upsertWorkspaceQuota(
         "Updated workspace quota"
       );
 
-      return ok(updatedQuota[0] as WorkspaceQuota);
+      if (updatedQuota[0]) {
+        return ok({
+          ...updatedQuota[0],
+          createdAt: updatedQuota[0].createdAt.toISOString(),
+          updatedAt: updatedQuota[0].updatedAt.toISOString(),
+        } as WorkspaceQuota);
+      } else {
+        return err("Failed to update quota");
+      }
     } else {
       // Create new quota with defaults merged with provided limits
       const newQuota = await db()
@@ -368,7 +376,15 @@ export async function upsertWorkspaceQuota(
         "Created new workspace quota"
       );
 
-      return ok(newQuota[0] as WorkspaceQuota);
+      if (newQuota[0]) {
+        return ok({
+          ...newQuota[0],
+          createdAt: newQuota[0].createdAt.toISOString(),
+          updatedAt: newQuota[0].updatedAt.toISOString(),
+        } as WorkspaceQuota);
+      } else {
+        return err("Failed to create quota");
+      }
     }
   } catch (error) {
     logger().error(
@@ -399,7 +415,13 @@ export async function getWorkspaceQuota(
       where: eq(schema.workspaceQuota.workspaceId, workspaceId),
     });
 
-    return quota as WorkspaceQuota | null;
+    if (!quota) return null;
+    
+    return {
+      ...quota,
+      createdAt: quota.createdAt.toISOString(),
+      updatedAt: quota.updatedAt.toISOString(),
+    } as WorkspaceQuota;
   } catch (error) {
     logger().error(
       { error, workspaceId },

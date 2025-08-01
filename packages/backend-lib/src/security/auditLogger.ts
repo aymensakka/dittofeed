@@ -179,7 +179,7 @@ export function auditApiKeyAccess(
       AuditEventType.SUSPICIOUS_ACTIVITY,
       AuditSeverity.HIGH,
       "Invalid workspace ID format in API key access",
-      { workspaceId, keyId, ...context },
+      { workspaceId, resourceId: keyId, resourceType: "api_key", ...context },
       false,
       "Invalid UUID format"
     );

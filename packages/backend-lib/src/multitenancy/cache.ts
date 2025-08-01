@@ -32,23 +32,35 @@ export class TenantCache {
   private keyPrefix: string;
 
   constructor(redisOptions?: RedisOptions) {
-    // Initialize Redis client with default options
-    this.redis = new Redis({
-      host: config().redisHost || "localhost",
-      port: config().redisPort || 6379,
-      password: config().redisPassword,
-      keyPrefix: "dittofeed:cache:",
-      maxRetriesPerRequest: 3,
-      enableOfflineQueue: false,
-      ...redisOptions,
-    });
+    const cfg = config();
+    
+    // Initialize Redis client with config or URL
+    if (cfg.redisUrl) {
+      this.redis = new Redis(cfg.redisUrl, {
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: false,
+        ...redisOptions,
+      });
+    } else {
+      this.redis = new Redis({
+        host: cfg.redisHost,
+        port: cfg.redisPort,
+        password: cfg.redisPassword,
+        tls: cfg.redisTls ? {} : undefined,
+        keyPrefix: "dittofeed:cache:",
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: false,
+        lazyConnect: true,
+        ...redisOptions,
+      });
+    }
 
-    this.defaultTTL = config().tenantCacheTTL || 300; // 5 minutes default
+    this.defaultTTL = cfg.tenantCacheTTL;
     this.stats = new Map();
     this.keyPrefix = "workspace:";
 
     // Set up error handling
-    this.redis.on("error", (err) => {
+    this.redis.on("error", (err: Error) => {
       logger().error({ error: err }, "Redis cache error");
     });
 
@@ -58,20 +70,17 @@ export class TenantCache {
   }
 
   /**
-   * Generate a cache key with workspace isolation
+   * Build a workspace-scoped cache key
    * 
-   * @param workspaceId - The UUID of the workspace
+   * @param workspaceId - The workspace ID
    * @param key - The cache key
    * @param prefix - Optional additional prefix
-   * @returns Formatted cache key
+   * @returns The full cache key
    */
-  private getCacheKey(
-    workspaceId: string,
-    key: string,
-    prefix?: string
-  ): string {
+  private buildKey(workspaceId: string, key: string, prefix?: string): string {
+    // Validate workspace ID to prevent cache poisoning
     if (!validate(workspaceId)) {
-      throw new Error(`Invalid workspace ID format: ${workspaceId}`);
+      throw new Error(`Invalid workspace ID: ${workspaceId}`);
     }
 
     const parts = [this.keyPrefix, workspaceId];
@@ -79,292 +88,14 @@ export class TenantCache {
       parts.push(prefix);
     }
     parts.push(key);
-
+    
     return parts.join(":");
   }
 
   /**
-   * Get a value from the cache
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param key - The cache key
-   * @param options - Cache options
-   * @returns Cached value or null if not found
+   * Get stats for a workspace
    */
-  async get<T>(
-    workspaceId: string,
-    key: string,
-    options?: CacheOptions
-  ): Promise<T | null> {
-    const cacheKey = this.getCacheKey(workspaceId, key, options?.prefix);
-    
-    try {
-      const value = await this.redis.get(cacheKey);
-      
-      if (value === null) {
-        this.recordMiss(workspaceId);
-        return null;
-      }
-
-      this.recordHit(workspaceId);
-      return JSON.parse(value) as T;
-    } catch (error) {
-      logger().error(
-        { error, workspaceId, key },
-        "Cache get error"
-      );
-      this.recordError(workspaceId);
-      return null;
-    }
-  }
-
-  /**
-   * Set a value in the cache
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param key - The cache key
-   * @param value - The value to cache
-   * @param options - Cache options
-   */
-  async set<T>(
-    workspaceId: string,
-    key: string,
-    value: T,
-    options?: CacheOptions
-  ): Promise<void> {
-    const cacheKey = this.getCacheKey(workspaceId, key, options?.prefix);
-    const ttl = options?.ttl || this.defaultTTL;
-
-    try {
-      const serialized = JSON.stringify(value);
-      
-      if (ttl > 0) {
-        await this.redis.setex(cacheKey, ttl, serialized);
-      } else {
-        await this.redis.set(cacheKey, serialized);
-      }
-
-      this.recordSet(workspaceId);
-    } catch (error) {
-      logger().error(
-        { error, workspaceId, key },
-        "Cache set error"
-      );
-      this.recordError(workspaceId);
-    }
-  }
-
-  /**
-   * Delete a value from the cache
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param key - The cache key
-   * @param options - Cache options
-   */
-  async delete(
-    workspaceId: string,
-    key: string,
-    options?: CacheOptions
-  ): Promise<void> {
-    const cacheKey = this.getCacheKey(workspaceId, key, options?.prefix);
-
-    try {
-      await this.redis.del(cacheKey);
-      this.recordDelete(workspaceId);
-    } catch (error) {
-      logger().error(
-        { error, workspaceId, key },
-        "Cache delete error"
-      );
-      this.recordError(workspaceId);
-    }
-  }
-
-  /**
-   * Delete multiple values from the cache
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param keys - Array of cache keys
-   * @param options - Cache options
-   */
-  async deleteMany(
-    workspaceId: string,
-    keys: string[],
-    options?: CacheOptions
-  ): Promise<void> {
-    if (keys.length === 0) {
-      return;
-    }
-
-    const cacheKeys = keys.map((key) =>
-      this.getCacheKey(workspaceId, key, options?.prefix)
-    );
-
-    try {
-      await this.redis.del(...cacheKeys);
-      
-      // Record multiple deletes
-      for (let i = 0; i < keys.length; i++) {
-        this.recordDelete(workspaceId);
-      }
-    } catch (error) {
-      logger().error(
-        { error, workspaceId, keyCount: keys.length },
-        "Cache deleteMany error"
-      );
-      this.recordError(workspaceId);
-    }
-  }
-
-  /**
-   * Invalidate all cache entries for a workspace
-   * 
-   * @param workspaceId - The UUID of the workspace
-   */
-  async invalidateWorkspace(workspaceId: string): Promise<void> {
-    if (!validate(workspaceId)) {
-      throw new Error(`Invalid workspace ID format: ${workspaceId}`);
-    }
-
-    const pattern = `${this.keyPrefix}${workspaceId}:*`;
-
-    try {
-      // Use SCAN to find all keys for the workspace
-      const stream = this.redis.scanStream({
-        match: pattern,
-        count: 100,
-      });
-
-      const pipeline = this.redis.pipeline();
-      let keyCount = 0;
-
-      stream.on("data", (keys: string[]) => {
-        if (keys.length > 0) {
-          keyCount += keys.length;
-          keys.forEach((key) => pipeline.del(key));
-        }
-      });
-
-      stream.on("end", async () => {
-        if (keyCount > 0) {
-          await pipeline.exec();
-          
-          logger().info(
-            { workspaceId, keyCount },
-            "Invalidated workspace cache"
-          );
-        }
-      });
-
-      stream.on("error", (error) => {
-        logger().error(
-          { error, workspaceId },
-          "Error invalidating workspace cache"
-        );
-        this.recordError(workspaceId);
-      });
-    } catch (error) {
-      logger().error(
-        { error, workspaceId },
-        "Failed to invalidate workspace cache"
-      );
-      this.recordError(workspaceId);
-    }
-  }
-
-  /**
-   * Get or set a value in the cache
-   * This is useful for implementing the cache-aside pattern
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param key - The cache key
-   * @param factory - Function to generate value if not cached
-   * @param options - Cache options
-   * @returns The cached or generated value
-   */
-  async getOrSet<T>(
-    workspaceId: string,
-    key: string,
-    factory: () => Promise<T>,
-    options?: CacheOptions
-  ): Promise<T> {
-    // Try to get from cache first
-    const cached = await this.get<T>(workspaceId, key, options);
-    if (cached !== null) {
-      return cached;
-    }
-
-    // Generate value using factory
-    const value = await factory();
-
-    // Cache the generated value
-    await this.set(workspaceId, key, value, options);
-
-    return value;
-  }
-
-  /**
-   * Check if a key exists in the cache
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param key - The cache key
-   * @param options - Cache options
-   * @returns True if the key exists
-   */
-  async exists(
-    workspaceId: string,
-    key: string,
-    options?: CacheOptions
-  ): Promise<boolean> {
-    const cacheKey = this.getCacheKey(workspaceId, key, options?.prefix);
-
-    try {
-      const exists = await this.redis.exists(cacheKey);
-      return exists === 1;
-    } catch (error) {
-      logger().error(
-        { error, workspaceId, key },
-        "Cache exists error"
-      );
-      this.recordError(workspaceId);
-      return false;
-    }
-  }
-
-  /**
-   * Set expiration time on an existing key
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @param key - The cache key
-   * @param ttl - Time to live in seconds
-   * @param options - Cache options
-   */
-  async expire(
-    workspaceId: string,
-    key: string,
-    ttl: number,
-    options?: CacheOptions
-  ): Promise<void> {
-    const cacheKey = this.getCacheKey(workspaceId, key, options?.prefix);
-
-    try {
-      await this.redis.expire(cacheKey, ttl);
-    } catch (error) {
-      logger().error(
-        { error, workspaceId, key, ttl },
-        "Cache expire error"
-      );
-      this.recordError(workspaceId);
-    }
-  }
-
-  /**
-   * Get statistics for a workspace
-   * 
-   * @param workspaceId - The UUID of the workspace
-   * @returns Cache statistics
-   */
-  getStats(workspaceId: string): CacheStats {
+  private getStats(workspaceId: string): CacheStats {
     if (!this.stats.has(workspaceId)) {
       this.stats.set(workspaceId, {
         hits: 0,
@@ -374,99 +105,376 @@ export class TenantCache {
         errors: 0,
       });
     }
-
-    return { ...this.stats.get(workspaceId)! };
+    return this.stats.get(workspaceId)!;
   }
 
   /**
-   * Get cache hit rate for a workspace
+   * Get a value from cache
    * 
-   * @param workspaceId - The UUID of the workspace
-   * @returns Hit rate as a percentage (0-100)
+   * @param workspaceId - The workspace ID
+   * @param key - The cache key
+   * @param options - Cache options
+   * @returns The cached value or null if not found
    */
-  getHitRate(workspaceId: string): number {
+  async get(
+    workspaceId: string,
+    key: string,
+    options?: CacheOptions
+  ): Promise<string | null> {
     const stats = this.getStats(workspaceId);
-    const total = stats.hits + stats.misses;
     
-    if (total === 0) {
+    try {
+      const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+      const value = await this.redis.get(fullKey);
+      
+      if (value) {
+        stats.hits++;
+      } else {
+        stats.misses++;
+      }
+      
+      return value;
+    } catch (error) {
+      stats.errors++;
+      logger().error(
+        { error, workspaceId, key },
+        "Cache get error"
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Set a value in cache
+   * 
+   * @param workspaceId - The workspace ID
+   * @param key - The cache key
+   * @param value - The value to cache
+   * @param options - Cache options
+   */
+  async set(
+    workspaceId: string,
+    key: string,
+    value: string,
+    options?: CacheOptions
+  ): Promise<void> {
+    const stats = this.getStats(workspaceId);
+    
+    try {
+      const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+      const ttl = options?.ttl || this.defaultTTL;
+      
+      await this.redis.setex(fullKey, ttl, value);
+      stats.sets++;
+    } catch (error) {
+      stats.errors++;
+      logger().error(
+        { error, workspaceId, key },
+        "Cache set error"
+      );
+    }
+  }
+
+  /**
+   * Delete a value from cache
+   * 
+   * @param workspaceId - The workspace ID
+   * @param key - The cache key
+   * @param options - Cache options
+   */
+  async delete(
+    workspaceId: string,
+    key: string,
+    options?: CacheOptions
+  ): Promise<void> {
+    const stats = this.getStats(workspaceId);
+    
+    try {
+      const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+      await this.redis.del(fullKey);
+      stats.deletes++;
+    } catch (error) {
+      stats.errors++;
+      logger().error(
+        { error, workspaceId, key },
+        "Cache delete error"
+      );
+    }
+  }
+
+  /**
+   * Clear all cache entries for a workspace
+   * 
+   * @param workspaceId - The workspace ID
+   */
+  async clearWorkspace(workspaceId: string): Promise<void> {
+    try {
+      const pattern = this.buildKey(workspaceId, "*");
+      const keys = await this.redis.keys(pattern);
+      
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+      
+      logger().info(
+        { workspaceId, count: keys.length },
+        "Cleared workspace cache"
+      );
+    } catch (error) {
+      logger().error(
+        { error, workspaceId },
+        "Failed to clear workspace cache"
+      );
+    }
+  }
+
+  /**
+   * Get cache statistics for a workspace
+   * 
+   * @param workspaceId - The workspace ID
+   * @returns Cache statistics
+   */
+  getWorkspaceStats(workspaceId: string): CacheStats {
+    return this.getStats(workspaceId);
+  }
+
+  /**
+   * Check if a key exists in cache
+   * 
+   * @param workspaceId - The workspace ID
+   * @param key - The cache key
+   * @param options - Cache options
+   * @returns True if the key exists
+   */
+  async exists(
+    workspaceId: string,
+    key: string,
+    options?: CacheOptions
+  ): Promise<boolean> {
+    try {
+      const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+      const exists = await this.redis.exists(fullKey);
+      return exists === 1;
+    } catch (error) {
+      logger().error(
+        { error, workspaceId, key },
+        "Cache exists check error"
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Get multiple values from cache
+   * 
+   * @param workspaceId - The workspace ID
+   * @param keys - Array of cache keys
+   * @param options - Cache options
+   * @returns Array of values (null for missing keys)
+   */
+  async mget(
+    workspaceId: string,
+    keys: string[],
+    options?: CacheOptions
+  ): Promise<(string | null)[]> {
+    const stats = this.getStats(workspaceId);
+    
+    try {
+      const fullKeys = keys.map(key => 
+        this.buildKey(workspaceId, key, options?.prefix)
+      );
+      
+      const values = await this.redis.mget(...fullKeys);
+      
+      values.forEach(value => {
+        if (value) {
+          stats.hits++;
+        } else {
+          stats.misses++;
+        }
+      });
+      
+      return values;
+    } catch (error) {
+      stats.errors++;
+      logger().error(
+        { error, workspaceId, keys },
+        "Cache mget error"
+      );
+      return keys.map(() => null);
+    }
+  }
+
+  /**
+   * Set multiple values in cache
+   * 
+   * @param workspaceId - The workspace ID
+   * @param items - Array of key-value pairs
+   * @param options - Cache options
+   */
+  async mset(
+    workspaceId: string,
+    items: Array<{ key: string; value: string }>,
+    options?: CacheOptions
+  ): Promise<void> {
+    const stats = this.getStats(workspaceId);
+    const ttl = options?.ttl || this.defaultTTL;
+    
+    try {
+      const pipeline = this.redis.pipeline();
+      
+      items.forEach(({ key, value }) => {
+        const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+        pipeline.setex(fullKey, ttl, value);
+      });
+      
+      await pipeline.exec();
+      stats.sets += items.length;
+    } catch (error) {
+      stats.errors++;
+      logger().error(
+        { error, workspaceId, itemCount: items.length },
+        "Cache mset error"
+      );
+    }
+  }
+
+  /**
+   * Increment a counter in cache
+   * 
+   * @param workspaceId - The workspace ID
+   * @param key - The cache key
+   * @param increment - The amount to increment by (default: 1)
+   * @param options - Cache options
+   * @returns The new counter value
+   */
+  async incr(
+    workspaceId: string,
+    key: string,
+    increment: number = 1,
+    options?: CacheOptions
+  ): Promise<number> {
+    try {
+      const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+      const result = await this.redis.incrby(fullKey, increment);
+      
+      // Set TTL if specified
+      if (options?.ttl) {
+        await this.redis.expire(fullKey, options.ttl);
+      }
+      
+      return result;
+    } catch (error) {
+      logger().error(
+        { error, workspaceId, key, increment },
+        "Cache incr error"
+      );
       return 0;
     }
-
-    return Math.round((stats.hits / total) * 100);
   }
 
   /**
-   * Reset statistics for a workspace
+   * Get remaining TTL for a key
    * 
-   * @param workspaceId - The UUID of the workspace
+   * @param workspaceId - The workspace ID
+   * @param key - The cache key
+   * @param options - Cache options
+   * @returns TTL in seconds, -2 if key doesn't exist, -1 if key exists but has no TTL
    */
-  resetStats(workspaceId: string): void {
-    this.stats.delete(workspaceId);
+  async ttl(
+    workspaceId: string,
+    key: string,
+    options?: CacheOptions
+  ): Promise<number> {
+    try {
+      const fullKey = this.buildKey(workspaceId, key, options?.prefix);
+      return await this.redis.ttl(fullKey);
+    } catch (error) {
+      logger().error(
+        { error, workspaceId, key },
+        "Cache ttl error"
+      );
+      return -2;
+    }
   }
 
   /**
-   * Close the Redis connection
+   * Disconnect from Redis
    */
-  async close(): Promise<void> {
+  async disconnect(): Promise<void> {
     await this.redis.quit();
-    logger().info("Redis cache connection closed");
-  }
-
-  // Statistics tracking methods
-  private recordHit(workspaceId: string): void {
-    const stats = this.getStats(workspaceId);
-    stats.hits++;
-    this.stats.set(workspaceId, stats);
-  }
-
-  private recordMiss(workspaceId: string): void {
-    const stats = this.getStats(workspaceId);
-    stats.misses++;
-    this.stats.set(workspaceId, stats);
-  }
-
-  private recordSet(workspaceId: string): void {
-    const stats = this.getStats(workspaceId);
-    stats.sets++;
-    this.stats.set(workspaceId, stats);
-  }
-
-  private recordDelete(workspaceId: string): void {
-    const stats = this.getStats(workspaceId);
-    stats.deletes++;
-    this.stats.set(workspaceId, stats);
-  }
-
-  private recordError(workspaceId: string): void {
-    const stats = this.getStats(workspaceId);
-    stats.errors++;
-    this.stats.set(workspaceId, stats);
   }
 }
 
-// Export singleton instance
-let cacheInstance: TenantCache | null = null;
+// Singleton instance
+let tenantCache: TenantCache | null = null;
 
+/**
+ * Get the tenant cache instance
+ */
 export function getTenantCache(): TenantCache {
-  if (!cacheInstance) {
-    cacheInstance = new TenantCache();
+  if (!tenantCache) {
+    tenantCache = new TenantCache();
   }
-  return cacheInstance;
+  return tenantCache;
 }
 
-export async function closeTenantCache(): Promise<void> {
-  if (cacheInstance) {
-    await cacheInstance.close();
-    cacheInstance = null;
-  }
-}
+/**
+ * Cache decorator for workspace-scoped methods
+ * 
+ * @param ttl - Time to live in seconds
+ * @param keyBuilder - Function to build cache key from method arguments
+ */
+export function CacheWorkspaceMethod(
+  ttl: number = 300,
+  keyBuilder?: (...args: any[]) => string
+) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
 
-// Common cache key prefixes for different resource types
-export const CachePrefixes = {
-  SEGMENT: "segment",
-  JOURNEY: "journey",
-  USER_PROPERTY: "user_property",
-  MESSAGE_TEMPLATE: "message_template",
-  WORKSPACE_CONFIG: "workspace_config",
-  COMPUTED_PROPERTY: "computed_property",
-} as const;
+    descriptor.value = async function (...args: any[]) {
+      // Assume first argument is workspaceId
+      const workspaceId = args[0];
+      if (!workspaceId || !validate(workspaceId)) {
+        // If no valid workspace ID, skip caching
+        return originalMethod.apply(this, args);
+      }
+
+      const cache = getTenantCache();
+      const cacheKey = keyBuilder 
+        ? keyBuilder(...args) 
+        : `${propertyKey}:${JSON.stringify(args.slice(1))}`;
+
+      // Try to get from cache
+      const cached = await cache.get(workspaceId, cacheKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          // If parse fails, continue to original method
+        }
+      }
+
+      // Execute original method
+      const result = await originalMethod.apply(this, args);
+
+      // Cache the result
+      if (result !== null && result !== undefined) {
+        await cache.set(
+          workspaceId,
+          cacheKey,
+          JSON.stringify(result),
+          { ttl }
+        );
+      }
+
+      return result;
+    };
+
+    return descriptor;
+  };
+}

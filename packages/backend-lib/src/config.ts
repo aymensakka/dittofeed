@@ -42,6 +42,13 @@ const BaseRawConfigProps = {
   kafkaUserEventsReplicationFactor: Type.Optional(Type.String()),
   userEventsTopicName: Type.Optional(Type.String()),
   temporalNamespace: Type.Optional(Type.String()),
+  redisUrl: Type.Optional(Type.String()),
+  redisHost: Type.Optional(Type.String()),
+  redisPort: Type.Optional(Type.String()),
+  redisPassword: Type.Optional(Type.String()),
+  redisTls: Type.Optional(BoolStr),
+  redisPoolSize: Type.Optional(Type.String()),
+  tenantCacheTTL: Type.Optional(Type.String()),
   logConfig: Type.Optional(BoolStr),
   bootstrap: Type.Optional(BoolStr),
   bootstrapEvents: Type.Optional(BoolStr),
@@ -252,6 +259,13 @@ export type Config = Overwrite<
     kafkaSsl: boolean;
     kafkaUserEventsPartitions: number;
     kafkaUserEventsReplicationFactor: number;
+    redisUrl?: string;
+    redisHost: string;
+    redisPort: number;
+    redisPassword?: string;
+    redisTls: boolean;
+    redisPoolSize: number;
+    tenantCacheTTL: number;
     logConfig: boolean;
     logLevel: LogLevel;
     nodeEnv: NodeEnvEnum;
@@ -293,6 +307,8 @@ export const SECRETS = new Set<keyof Config>([
   "hyperDxApiKey",
   "databaseUrl", // Contains password
   "dashboardWriteKey", // Potentially sensitive
+  "redisPassword",
+  "redisUrl", // May contain password
 ]);
 
 const defaultDbParams: Record<string, string> = {
@@ -523,6 +539,13 @@ function parseRawConfig(rawConfig: RawConfig): Config {
     userEventsTopicName:
       rawConfig.userEventsTopicName ?? "dittofeed-user-events",
     temporalNamespace: rawConfig.temporalNamespace ?? "default",
+    redisUrl: rawConfig.redisUrl,
+    redisHost: rawConfig.redisHost ?? "localhost",
+    redisPort: parseInt(rawConfig.redisPort ?? "6379"),
+    redisPassword: rawConfig.redisPassword,
+    redisTls: rawConfig.redisTls === "true",
+    redisPoolSize: parseInt(rawConfig.redisPoolSize ?? "10"),
+    tenantCacheTTL: parseInt(rawConfig.tenantCacheTTL ?? "300"),
     // deprecated
     defaultUserEventsTableVersion:
       rawConfig.defaultUserEventsTableVersion ?? "",

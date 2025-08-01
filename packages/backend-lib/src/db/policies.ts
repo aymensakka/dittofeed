@@ -1,6 +1,6 @@
 import { validate } from "uuid";
 import { sql } from "drizzle-orm";
-import { db } from "./index";
+import { db, type Db } from "../db";
 import logger from "../logger";
 
 /**
@@ -76,7 +76,7 @@ export async function clearWorkspaceContext(): Promise<void> {
  */
 export async function withWorkspaceContext<T>(
   workspaceId: string,
-  fn: () => Promise<T>
+  fn: (tx: any) => Promise<T>
 ): Promise<T> {
   // Validate workspace ID format
   if (!validate(workspaceId)) {
@@ -95,7 +95,7 @@ export async function withWorkspaceContext<T>(
     );
 
     try {
-      return await fn();
+      return await fn(tx);
     } catch (error) {
       logger().error(
         { error, workspaceId },
@@ -118,7 +118,7 @@ export async function getCurrentWorkspaceContext(): Promise<string | null> {
       sql`SELECT current_setting('app.current_workspace_id', true) as workspace_id`
     );
     
-    const workspaceId = result[0]?.workspace_id as string;
+    const workspaceId = (result as any)[0]?.workspace_id as string;
     
     // Return null if setting is empty or not set
     if (!workspaceId || workspaceId === '') {
@@ -201,7 +201,7 @@ export async function validateRLSConfiguration(tableName: RLSProtectedTable): Pr
       `
     );
     
-    const isEnabled = result[0]?.relrowsecurity as boolean;
+    const isEnabled = (result as any)[0]?.relrowsecurity as boolean;
     
     logger().debug(
       { tableName, isEnabled },
