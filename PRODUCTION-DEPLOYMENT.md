@@ -169,6 +169,36 @@ docker-compose --version
    # Token is included in the environment variables above
    ```
 
+### Docker Registry Configuration in Coolify
+
+**Setting up Nexus Registry Access:**
+
+1. **In Coolify Dashboard:**
+   - Navigate to Settings → Docker Registries
+   - Click "Add Docker Registry"
+   - Configure:
+     ```
+     Registry Type: Custom Docker Registry
+     Registry URL: registry.reactmotion.com:8082
+     Username: [your-nexus-username]
+     Password: [your-nexus-password]
+     ```
+   - Click "Save"
+
+2. **In Your Application Settings:**
+   - Go to your Dittofeed application
+   - Under "General" tab, find "Docker Registry"
+   - Select your Nexus registry from dropdown
+   - Save configuration
+
+3. **Alternative: Add to docker-compose.yaml**
+   ```yaml
+   x-docker-registry: &docker-registry
+     auth:
+       username: ${DOCKER_REGISTRY_USERNAME}
+       password: ${DOCKER_REGISTRY_PASSWORD}
+   ```
+
 ### Coolify Deployment - Complete Environment Variables
 
 For easy copy-paste into Coolify, here are all required environment variables:
