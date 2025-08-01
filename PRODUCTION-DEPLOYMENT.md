@@ -179,11 +179,13 @@ docker-compose --version
    - Configure:
      ```
      Registry Type: Custom Docker Registry
-     Registry URL: registry.reactmotion.com:8081
+     Registry URL: http://registry.reactmotion.com:8081
+     Repository: my-docker-repo
      Username: [your-nexus-username]
      Password: [your-nexus-password]
      ```
    - Click "Save"
+   - Note: HTTP is enabled on this registry (port 8081)
 
 2. **In Your Application Settings:**
    - Go to your Dittofeed application
