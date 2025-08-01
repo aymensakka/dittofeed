@@ -1,5 +1,11 @@
 version: '3.8'
 
+# Docker Registry Authentication for Nexus
+x-docker-registry: &docker-registry
+  auth:
+    username: ${DOCKER_REGISTRY_USERNAME}
+    password: ${DOCKER_REGISTRY_PASSWORD}
+
 services:
   # PostgreSQL Database with Enterprise Multitenancy
   postgres:
@@ -64,6 +70,7 @@ services:
   api:
     image: registry.reactmotion.com:8082/dittofeed/api:multitenancy-redis-v1
     container_name: dittofeed_api
+    <<: *docker-registry
     environment:
       # Basic Configuration
       NODE_ENV: production
@@ -138,6 +145,7 @@ services:
   dashboard:
     image: registry.reactmotion.com:8082/dittofeed/dashboard:multitenancy-redis-v1
     container_name: dittofeed_dashboard
+    <<: *docker-registry
     environment:
       # Basic Configuration
       NODE_ENV: production
@@ -181,6 +189,7 @@ services:
   worker:
     image: registry.reactmotion.com:8082/dittofeed/worker:multitenancy-redis-v1
     container_name: dittofeed_worker
+    <<: *docker-registry
     environment:
       # Basic Configuration
       NODE_ENV: production

@@ -218,6 +218,10 @@ NEXT_PUBLIC_API_URL=https://api.com.caramelme.com
 CORS_ORIGIN=https://dashboard.com.caramelme.com
 CF_TUNNEL_TOKEN=eyJhIjoiM2VhYWVhZTU0YTRjYWYwMWYzZGY1OGRkYTZjMjhkMzAiLCJzIjoid3lYb2wyR21WWkZmeHYrblExRHNwNUNvT0JwaUpQUC93cjd4ZXZ5dkZpTT0iLCJ0IjoiY2I3YmMwMjctN2U5Yy00YzFmLTk4ZTUtZDIwYTY3M2UyNDE1In0=
 
+# Docker Registry Credentials (Required for Nexus)
+DOCKER_REGISTRY_USERNAME=[your-nexus-username]
+DOCKER_REGISTRY_PASSWORD=[your-nexus-password]
+
 # OPTIONAL - Have defaults in docker-compose:
 GRAFANA_USER=admin
 GRAFANA_ROOT_URL=https://grafana.com.caramelme.com
