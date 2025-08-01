@@ -124,13 +124,14 @@ docker-compose --version
    # Domain Configuration (Already Set)
    DOMAIN=caramelme.com
    
-   # Security Credentials (MUST CHANGE)
-   POSTGRES_PASSWORD=your_ultra_secure_postgres_password_here
-   JWT_SECRET=your_jwt_secret_32_chars_minimum_length
-   ENCRYPTION_KEY=your_encryption_key_32_chars_minimum
-   NEXTAUTH_SECRET=your_nextauth_secret_32_chars_minimum
-   GRAFANA_PASSWORD=your_grafana_admin_password_here
-   REDIS_PASSWORD=your_redis_password_here
+   # Security Credentials (MUST CHANGE FOR PRODUCTION!)
+   # Generated secure values - replace with your own:
+   POSTGRES_PASSWORD=AXRH+ft7pHxNF/aM2m6P0g==
+   JWT_SECRET=G1y/p4XikQN9CKxhsoUpTca0AHHiwdzy88/lTKxSBOA=
+   ENCRYPTION_KEY=ejwtDVcv6S0fM174RrsWdDXzs8WbQyyUnqS1Vtt6088=
+   NEXTAUTH_SECRET=m68OINfp4YRVtVds/oeMSxkQobxePK4lTPtq7hWcYdE=
+   GRAFANA_PASSWORD=grafana_secure_password_here
+   REDIS_PASSWORD=redis_secure_password_here
    
    # API URLs (Already Configured)
    API_BASE_URL=https://api.com.caramelme.com
@@ -138,8 +139,8 @@ docker-compose --version
    NEXT_PUBLIC_API_URL=https://api.com.caramelme.com
    CORS_ORIGIN=https://dashboard.com.caramelme.com
    
-   # Cloudflare Configuration (If using Option 2)
-   CF_TUNNEL_TOKEN=your-cloudflare-tunnel-token-here
+   # Cloudflare Tunnel Token (for dittofeed-coolify tunnel)
+   CF_TUNNEL_TOKEN=eyJhIjoiM2VhYWVhZTU0YTRjYWYwMWYzZGY1OGRkYTZjMjhkMzAiLCJzIjoid3lYb2wyR21WWkZmeHYrblExRHNwNUNvT0JwaUpQUC93cjd4ZXZ5dkZpTT0iLCJ0IjoiY2I3YmMwMjctN2U5Yy00YzFmLTk4ZTUtZDIwYTY3M2UyNDE1In0=
    ```
 
 4. **Generate Secure Secrets:**
@@ -163,15 +164,50 @@ docker-compose --version
 
 1. **Create Cloudflare Tunnel:**
    ```bash
-   # In Cloudflare Zero Trust Dashboard:
-   # 1. Go to Access → Tunnels
-   # 2. Create a new tunnel named 'dittofeed-production'
-   # 3. Copy the tunnel token (starts with 'eyJ...')
-   # 4. Add to .env.prod.local as CF_TUNNEL_TOKEN
-   
-   # For detailed instructions see:
-   # config/cloudflare/setup-instructions.md
+   # Tunnel already created: "dittofeed-coolify"
+   # Tunnel ID: cb7bc027-7e9c-4c1f-98e5-d20a673e2415
+   # Token is included in the environment variables above
    ```
+
+### Coolify Deployment - Complete Environment Variables
+
+For easy copy-paste into Coolify, here are all required environment variables:
+
+```bash
+# CRITICAL - Must be set:
+DOMAIN=caramelme.com
+POSTGRES_PASSWORD=AXRH+ft7pHxNF/aM2m6P0g==
+REDIS_PASSWORD=redis_secure_password_here
+JWT_SECRET=G1y/p4XikQN9CKxhsoUpTca0AHHiwdzy88/lTKxSBOA=
+ENCRYPTION_KEY=ejwtDVcv6S0fM174RrsWdDXzs8WbQyyUnqS1Vtt6088=
+NEXTAUTH_SECRET=m68OINfp4YRVtVds/oeMSxkQobxePK4lTPtq7hWcYdE=
+GRAFANA_PASSWORD=grafana_secure_password_here
+API_BASE_URL=https://api.com.caramelme.com
+NEXTAUTH_URL=https://dashboard.com.caramelme.com
+NEXT_PUBLIC_API_URL=https://api.com.caramelme.com
+CORS_ORIGIN=https://dashboard.com.caramelme.com
+CF_TUNNEL_TOKEN=eyJhIjoiM2VhYWVhZTU0YTRjYWYwMWYzZGY1OGRkYTZjMjhkMzAiLCJzIjoid3lYb2wyR21WWkZmeHYrblExRHNwNUNvT0JwaUpQUC93cjd4ZXZ5dkZpTT0iLCJ0IjoiY2I3YmMwMjctN2U5Yy00YzFmLTk4ZTUtZDIwYTY3M2UyNDE1In0=
+
+# OPTIONAL - Have defaults in docker-compose:
+GRAFANA_USER=admin
+GRAFANA_ROOT_URL=https://grafana.com.caramelme.com
+AUTH_MODE=multi-tenant
+ENABLE_RLS_ENFORCEMENT=true
+AUDIT_LOG_ENABLED=true
+AUDIT_LOG_RETENTION_DAYS=90
+TENANT_CACHE_TTL=300
+DEFAULT_WORKSPACE_NAME=Default Workspace
+ENABLE_WORKSPACE_CREATION=true
+DB_POOL_SIZE=20
+DB_POOL_TIMEOUT=30000
+REDIS_POOL_SIZE=10
+WORKER_CONCURRENCY=10
+WORKER_MAX_RETRIES=3
+MONITORING_ENABLED=true
+NEXT_PUBLIC_ENABLE_MULTITENANCY=true
+NEXT_PUBLIC_AUTH_MODE=multi-tenant
+NEXT_PUBLIC_MONITORING_ENABLED=true
+```
 
 2. **Configure Environment:**
    ```bash
