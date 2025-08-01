@@ -179,7 +179,7 @@ docker-compose --version
    - Configure:
      ```
      Registry Type: Custom Docker Registry
-     Registry URL: registry.reactmotion.com:8082
+     Registry URL: registry.reactmotion.com:8081
      Username: [your-nexus-username]
      Password: [your-nexus-password]
      ```
