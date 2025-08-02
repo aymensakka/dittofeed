@@ -10,9 +10,9 @@ REPO="my-docker-repo/dittofeed"
 TAG="multitenancy-redis-v1"
 PLATFORM="linux/amd64"
 
-# Build constraints for 2 vCPU server
-BUILD_CPUS="1.5"  # Use 1.5 cores max, leaving 0.5 for system
-BUILD_MEMORY="3g"  # Limit memory if needed (adjust based on your server)
+# Note: Docker build doesn't support CPU/memory limits
+# These would only apply at runtime, not build time
+# For 2 vCPU servers, we rely on sequential builds and cache cleanup
 
 # Registry credentials
 REGISTRY_USER="coolify-system"
@@ -78,7 +78,7 @@ log_info "Starting build process for Dittofeed images..."
 log_info "System resources:"
 echo "  CPUs: $(nproc)"
 echo "  Memory: $(free -h | grep Mem | awk '{print $2}')"
-echo "  Build limits: ${BUILD_CPUS} CPUs, ${BUILD_MEMORY} memory"
+echo "  Note: Building sequentially to avoid resource exhaustion"
 
 # Pull latest changes (optional - comment out if building specific version)
 log_info "Pulling latest changes from git..."
@@ -110,14 +110,14 @@ build_and_push() {
     # Full image name
     local image_name="$REGISTRY/$REPO/$service:$TAG"
     
-    # Build the image with resource constraints
+    # Build the image
+    # Note: --cpus and --memory are not available for docker build
+    # Resource limits are enforced at container runtime, not build time
     docker build \
         --platform "$PLATFORM" \
         -f "$dockerfile_path" \
         -t "$image_name" \
         --build-arg NODE_ENV=production \
-        --cpus="$BUILD_CPUS" \
-        --memory="$BUILD_MEMORY" \
         "$context_path"
     
     if [ $? -ne 0 ]; then
