@@ -130,26 +130,14 @@ build_and_push() {
     
     log_info "Pushing $service image to registry..."
     
-    # Retry push up to 3 times for timeout issues
-    local push_attempts=0
-    local max_attempts=3
-    
-    while [ $push_attempts -lt $max_attempts ]; do
-        push_attempts=$((push_attempts + 1))
-        log_info "Push attempt $push_attempts of $max_attempts..."
-        
-        if docker push "$image_name"; then
-            log_info "Successfully pushed $service image"
-            break
-        else
-            if [ $push_attempts -eq $max_attempts ]; then
-                log_error "Failed to push $service image after $max_attempts attempts"
-                exit 1
-            fi
-            log_warning "Push failed, retrying in 10 seconds..."
-            sleep 10
-        fi
-    done
+    # Push image - datacenter connection should handle this fine
+    if docker push "$image_name"; then
+        log_info "Successfully pushed $service image"
+    else
+        log_error "Failed to push $service image"
+        log_error "If this is a timeout issue, run: ./deployment/push-single-image.sh $image_name"
+        exit 1
+    fi
     
     log_info "Successfully built and pushed $service image"
 }
@@ -160,14 +148,8 @@ log_info "Building services sequentially to avoid resource exhaustion..."
 log_info "Building API service..."
 build_and_push "api" "packages/api/Dockerfile" "."
 
-# Clean up Docker build cache between builds to save memory
-docker system prune -f --volumes
-
 log_info "Building Dashboard service..."
 build_and_push "dashboard" "packages/dashboard/Dockerfile" "."
-
-# Clean up again
-docker system prune -f --volumes
 
 log_info "Building Worker service..."
 build_and_push "worker" "packages/worker/Dockerfile" "."

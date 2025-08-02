@@ -24,7 +24,7 @@ while true; do
         exit 0
     fi
     
-    echo "Push failed. Retrying in 5 seconds..."
+    echo "Push failed. Retrying in 2 seconds..."
     echo "Docker will resume from where it left off"
-    sleep 5
+    sleep 2
 done

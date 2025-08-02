@@ -49,12 +49,12 @@ push_with_persistence() {
                 log_info "Image already fully uploaded!"
                 return 0
             elif grep -q "Client Closed Request\|504 Gateway Time\|timeout" /tmp/docker-push.log; then
-                log_warning "Connection dropped or timeout. Retrying in 10 seconds..."
+                log_warning "Connection dropped or timeout. Retrying in 2 seconds..."
                 log_info "Docker automatically resumes from where it left off"
-                sleep 10
+                sleep 2
             else
-                log_error "Unexpected error. Retrying in 30 seconds..."
-                sleep 30
+                log_error "Unexpected error. Retrying in 5 seconds..."
+                sleep 5
             fi
         fi
     done
