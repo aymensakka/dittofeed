@@ -24,10 +24,18 @@ sudo ./deployment/setup-build-environment.sh
 | Script | Purpose | When to Use |
 |--------|---------|-------------|
 | `setup-build-environment.sh` | Install Docker, Node.js, Yarn | First time setup |
-| `build-and-push-images.sh` | Standard sequential build | 2 vCPU servers |
+| `build-and-push-images.sh` | Build all services sequentially | Standard builds |
 | `build-datacenter.sh` | Parallel high-speed build | 4+ vCPU servers |
+| **Individual Build Scripts** | | |
+| `build-api.sh` | Build and push API only | Update API service |
+| `build-dashboard.sh` | Build and push Dashboard only | Update Dashboard |
+| `build-worker.sh` | Build and push Worker only | Update Worker |
+| **Utility Scripts** | | |
+| `check-images.sh` | Check image status | Verify builds |
 | `push-single-image.sh` | Retry single image push | Push failures |
 | `push-slow-connection.sh` | Retry all image pushes | Multiple push failures |
+| **Workflow Scripts** | | |
+| `build-and-push-dev.sh` | Build using docker-compose | Dev server builds |
 
 ## Scripts Overview
 
@@ -197,6 +205,28 @@ git checkout v1.2.3
 - `docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1`
 
 ## Troubleshooting
+### Build individual images
+# Build and push dashboard
+docker build --platform linux/amd64 -f packages/dashboard/Dockerfile -t docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1 . && docker push docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
+ # Build and push worker
+  docker build --platform linux/amd64 -f packages/worker/Dockerfile -t docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1 . && \ docker push docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
+ Or run them separately:
+
+  For Dashboard:
+  # Build
+  docker build --platform linux/amd64 -f packages/dashboard/Dockerfile -t
+  docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1 .
+
+  # Push
+  docker push docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
+
+  For Worker:
+  # Build
+  docker build --platform linux/amd64 -f packages/worker/Dockerfile -t
+  docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1 .
+
+  # Push
+  docker push docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
 
 ### Common Issues
 
