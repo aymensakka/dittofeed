@@ -45,6 +45,23 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    log_error "Node.js is not installed. Please run: ./deployment/setup-build-environment.sh"
+    exit 1
+fi
+
+# Check if Yarn is installed
+if ! command -v yarn &> /dev/null; then
+    log_warning "Yarn is not installed. Installing Yarn..."
+    npm install -g yarn
+    if [ $? -ne 0 ]; then
+        log_error "Failed to install Yarn. Please run: sudo npm install -g yarn"
+        exit 1
+    fi
+    log_info "Yarn installed successfully"
+fi
+
 # Check if we're in the correct directory
 if [ ! -f "package.json" ] || [ ! -d "packages" ]; then
     log_error "Please run this script from the root of the Dittofeed repository"
@@ -52,6 +69,12 @@ if [ ! -f "package.json" ] || [ ! -d "packages" ]; then
 fi
 
 log_info "Starting build process for Dittofeed images..."
+
+# Pull latest changes (optional - comment out if building specific version)
+log_info "Pulling latest changes from git..."
+git fetch origin
+git reset --hard origin/main
+log_info "Updated to latest code"
 
 # Login to registry
 log_info "Logging into Docker registry..."
@@ -61,9 +84,10 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Build base dependencies first (if needed)
-log_info "Installing dependencies..."
-yarn install --frozen-lockfile
+# Note: Dependencies are installed inside Docker during build
+# If you need to install dependencies locally, uncomment the following:
+# log_info "Installing dependencies..."
+# yarn install --frozen-lockfile
 
 # Function to build and push an image
 build_and_push() {
