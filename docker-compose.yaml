@@ -4,6 +4,7 @@ services:
   # PostgreSQL Database with Enterprise Multitenancy
   postgres:
     image: postgres:15-alpine
+    platform: linux/amd64
     container_name: dittofeed_postgres
     environment:
       POSTGRES_DB: dittofeed
@@ -36,6 +37,7 @@ services:
   # Redis Cache for Workspace-Scoped Caching
   redis:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: dittofeed_redis
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -63,6 +65,7 @@ services:
   # Dittofeed API Server
   api:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
+    platform: linux/amd64
     container_name: dittofeed_api
     environment:
       # Basic Configuration
@@ -137,6 +140,7 @@ services:
   # Dittofeed Dashboard (Next.js Frontend)
   dashboard:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
+    platform: linux/amd64
     container_name: dittofeed_dashboard
     environment:
       # Basic Configuration
@@ -180,6 +184,7 @@ services:
   # Background Worker for Job Processing
   worker:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
+    platform: linux/amd64
     container_name: dittofeed_worker
     environment:
       # Basic Configuration
@@ -233,6 +238,7 @@ services:
   # Cloudflare Tunnel - Routes traffic from Cloudflare to local services
   cloudflared:
     image: cloudflare/cloudflared:latest
+    platform: linux/amd64
     container_name: dittofeed_cloudflared
     command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
     environment:
@@ -257,6 +263,7 @@ services:
   # Prometheus for Metrics Collection
   prometheus:
     image: prom/prometheus:latest
+    platform: linux/amd64
     container_name: dittofeed_prometheus
     volumes:
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -283,6 +290,7 @@ services:
   # Grafana for Monitoring Dashboard
   grafana:
     image: grafana/grafana:latest
+    platform: linux/amd64
     container_name: dittofeed_grafana
     environment:
       # Admin Configuration
