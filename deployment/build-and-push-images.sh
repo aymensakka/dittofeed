@@ -8,6 +8,9 @@ set -e  # Exit on error
 REGISTRY="docker.reactmotion.com"
 REPO="my-docker-repo/dittofeed"
 TAG="multitenancy-redis-v1"
+# Or use dynamic versioning:
+# TAG="multitenancy-redis-$(date +%Y%m%d-%H%M%S)"
+# TAG="multitenancy-redis-$(git rev-parse --short HEAD)"
 PLATFORM="linux/amd64"
 
 # Note: Docker build doesn't support CPU/memory limits
@@ -126,12 +129,27 @@ build_and_push() {
     fi
     
     log_info "Pushing $service image to registry..."
-    docker push "$image_name"
     
-    if [ $? -ne 0 ]; then
-        log_error "Failed to push $service image"
-        exit 1
-    fi
+    # Retry push up to 3 times for timeout issues
+    local push_attempts=0
+    local max_attempts=3
+    
+    while [ $push_attempts -lt $max_attempts ]; do
+        push_attempts=$((push_attempts + 1))
+        log_info "Push attempt $push_attempts of $max_attempts..."
+        
+        if docker push "$image_name"; then
+            log_info "Successfully pushed $service image"
+            break
+        else
+            if [ $push_attempts -eq $max_attempts ]; then
+                log_error "Failed to push $service image after $max_attempts attempts"
+                exit 1
+            fi
+            log_warning "Push failed, retrying in 10 seconds..."
+            sleep 10
+        fi
+    done
     
     log_info "Successfully built and pushed $service image"
 }
