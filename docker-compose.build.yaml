@@ -1,0 +1,36 @@
+version: '3.8'
+
+# Docker Compose for BUILD SERVER (Ubuntu Dev Server)
+# This builds images and pushes them to Nexus registry
+# Run with: docker-compose -f docker-compose.build.yaml build && docker-compose -f docker-compose.build.yaml push
+
+services:
+  # API Build
+  api-build:
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+      args:
+        NODE_ENV: production
+    platform: linux/amd64
+
+  # Dashboard Build
+  dashboard-build:
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+      args:
+        NODE_ENV: production
+    platform: linux/amd64
+
+  # Worker Build
+  worker-build:
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
+    build:
+      context: .
+      dockerfile: packages/worker/Dockerfile
+      args:
+        NODE_ENV: production
+    platform: linux/amd64
