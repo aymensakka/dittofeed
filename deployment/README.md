@@ -1,6 +1,6 @@
 # Deployment Scripts
 
-This folder contains scripts for building and deploying Dittofeed.
+This folder contains scripts for building and deploying Dittofeed Docker images to Nexus registry.
 
 ## Quick Start
 
@@ -12,9 +12,22 @@ cd dittofeed
 # Setup build environment (run once)
 sudo ./deployment/setup-build-environment.sh
 
-# Build and push images
+# Build and push images (2 vCPU server)
 ./deployment/build-and-push-images.sh
+
+# OR for powerful servers (4+ vCPU)
+./deployment/build-datacenter.sh
 ```
+
+## Script Quick Reference
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `setup-build-environment.sh` | Install Docker, Node.js, Yarn | First time setup |
+| `build-and-push-images.sh` | Standard sequential build | 2 vCPU servers |
+| `build-datacenter.sh` | Parallel high-speed build | 4+ vCPU servers |
+| `push-single-image.sh` | Retry single image push | Push failures |
+| `push-slow-connection.sh` | Retry all image pushes | Multiple push failures |
 
 ## Scripts Overview
 
@@ -40,49 +53,133 @@ curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/main/deploymen
 
 ### build-and-push-images.sh
 
-Builds Dittofeed Docker images on Ubuntu VPS and pushes them to Nexus registry.
+Standard build script for Dittofeed Docker images. Optimized for datacenter/VPS environments.
 
 **Features:**
 - Automatically pulls latest code from git
 - Builds for linux/amd64 platform
-- Sequential builds to avoid resource exhaustion
-- Cleans Docker cache between builds
+- Sequential builds (suitable for 2 vCPU servers)
+- Direct push without retries (assumes stable connection)
 - Verifies successful push to registry
 
-**Prerequisites:**
-- Ubuntu Linux VPS (tested on Ubuntu 20.04/22.04)
-- Minimum 4GB RAM, 2 vCPUs
-- Dependencies installed via setup script
+**Usage:**
+```bash
+cd dittofeed
+./deployment/build-and-push-images.sh
+```
+
+### build-datacenter.sh
+
+High-performance build script for powerful VPS/datacenter environments.
+
+**Features:**
+- Parallel builds for all services
+- Optimized for 4+ vCPU servers
+- Background build processes
+- Consolidated status reporting
 
 **Usage:**
+```bash
+cd dittofeed
+./deployment/build-datacenter.sh
+```
 
-1. **First time setup:**
-   ```bash
-   # Clone repository
-   git clone https://github.com/aymensakka/dittofeed.git
-   cd dittofeed
-   
-   # Install dependencies
-   sudo ./deployment/setup-build-environment.sh
-   
-   # Build and push images
-   ./deployment/build-and-push-images.sh
-   ```
+**Requirements:**
+- 4+ vCPUs recommended
+- 8GB+ RAM recommended
+- Fast network connection
 
-2. **Subsequent builds:**
-   ```bash
-   cd dittofeed
-   ./deployment/build-and-push-images.sh
-   # Script automatically pulls latest changes
-   ```
+### push-single-image.sh
 
-3. **Building specific version:**
-   ```bash
-   cd dittofeed
-   git checkout <tag-or-branch>
-   # Comment out lines 84-87 in build script to skip auto-pull
-   ./deployment/build-and-push-images.sh
-   ```
+Utility script for pushing a single image with automatic retry.
+
+**Usage:**
+```bash
+./deployment/push-single-image.sh docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
+```
+
+**When to use:**
+- When main build script push fails
+- For retrying large image uploads
+- Handling network timeout issues
+
+### push-slow-connection.sh
+
+Batch push script with automatic retry for all images.
+
+**Usage:**
+```bash
+./deployment/push-slow-connection.sh
+```
+
+**Features:**
+- Pushes all three services (api, dashboard, worker)
+- Infinite retry with fast 2-second delays
+- Handles timeouts and connection drops
+- Progress tracking
+
+## Choosing the Right Script
+
+### For 2 vCPU servers (standard):
+```bash
+# Use the standard build script
+./deployment/build-and-push-images.sh
+```
+
+### For 4+ vCPU servers (powerful):
+```bash
+# Use the parallel build script
+./deployment/build-datacenter.sh
+```
+
+### For push issues:
+```bash
+# Retry a single image
+./deployment/push-single-image.sh <image:tag>
+
+# Or retry all images
+./deployment/push-slow-connection.sh
+```
+
+## Complete Workflow Examples
+
+### First Time Setup
+```bash
+# 1. Clone repository
+git clone https://github.com/aymensakka/dittofeed.git
+cd dittofeed
+
+# 2. Install dependencies
+sudo ./deployment/setup-build-environment.sh
+
+# 3. Build and push (choose based on server specs)
+# For 2 vCPU:
+./deployment/build-and-push-images.sh
+
+# For 4+ vCPU:
+./deployment/build-datacenter.sh
+```
+
+### Subsequent Builds
+```bash
+cd dittofeed
+
+# Pull latest and build
+./deployment/build-and-push-images.sh
+
+# Or for specific version
+git checkout v1.2.3
+./deployment/build-and-push-images.sh
+```
+
+### Handling Push Failures
+```bash
+# If push fails during build, retry just that image
+./deployment/push-single-image.sh docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
+
+# Or retry all images
+./deployment/push-slow-connection.sh
+```
 
 ### What it does
 
