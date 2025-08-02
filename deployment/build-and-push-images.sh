@@ -10,6 +10,10 @@ REPO="my-docker-repo/dittofeed"
 TAG="multitenancy-redis-v1"
 PLATFORM="linux/amd64"
 
+# Build constraints for 2 vCPU server
+BUILD_CPUS="1.5"  # Use 1.5 cores max, leaving 0.5 for system
+BUILD_MEMORY="3g"  # Limit memory if needed (adjust based on your server)
+
 # Registry credentials
 REGISTRY_USER="coolify-system"
 REGISTRY_PASS='9sFPGGDJUFnE4z*z4Aj9'
@@ -70,6 +74,12 @@ fi
 
 log_info "Starting build process for Dittofeed images..."
 
+# Check system resources
+log_info "System resources:"
+echo "  CPUs: $(nproc)"
+echo "  Memory: $(free -h | grep Mem | awk '{print $2}')"
+echo "  Build limits: ${BUILD_CPUS} CPUs, ${BUILD_MEMORY} memory"
+
 # Pull latest changes (optional - comment out if building specific version)
 log_info "Pulling latest changes from git..."
 git fetch origin
@@ -100,12 +110,14 @@ build_and_push() {
     # Full image name
     local image_name="$REGISTRY/$REPO/$service:$TAG"
     
-    # Build the image
+    # Build the image with resource constraints
     docker build \
         --platform "$PLATFORM" \
         -f "$dockerfile_path" \
         -t "$image_name" \
         --build-arg NODE_ENV=production \
+        --cpus="$BUILD_CPUS" \
+        --memory="$BUILD_MEMORY" \
         "$context_path"
     
     if [ $? -ne 0 ]; then
@@ -124,12 +136,20 @@ build_and_push() {
     log_info "Successfully built and pushed $service image"
 }
 
-# Build and push each service
+# Build and push each service (sequential to avoid OOM on 2 vCPU server)
+log_info "Building services sequentially to avoid resource exhaustion..."
+
 log_info "Building API service..."
 build_and_push "api" "packages/api/Dockerfile" "."
 
+# Clean up Docker build cache between builds to save memory
+docker system prune -f --volumes
+
 log_info "Building Dashboard service..."
 build_and_push "dashboard" "packages/dashboard/Dockerfile" "."
+
+# Clean up again
+docker system prune -f --volumes
 
 log_info "Building Worker service..."
 build_and_push "worker" "packages/worker/Dockerfile" "."
