@@ -148,6 +148,10 @@ Builds Dittofeed Docker images on Ubuntu VPS and pushes them to Nexus registry.
    - Shows system resources
 
 2. **Update Phase:**
+  cd dittofeed
+  git fetch origin
+  git reset --hard origin/main
+  ./deployment/build-and-push-images.sh
    - Fetches latest code from GitHub
    - Resets to origin/main
 
