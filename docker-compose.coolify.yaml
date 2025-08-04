@@ -128,8 +128,6 @@ services:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
-    networks:
-      - default
 
 volumes:
   postgres_data:
