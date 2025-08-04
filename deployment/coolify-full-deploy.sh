@@ -4,16 +4,9 @@ set -e
 
 echo "=== Starting Deployment ==="
 
-# Source environment variables if .env.prod exists
-if [ -f .env.prod ]; then
-    echo "Loading environment variables from .env.prod..."
-    # Filter out lines with inline comments and source safely
-    set -a
-    grep -v '^#' .env.prod | grep '=' | sed 's/#.*//' > /tmp/env.tmp
-    source /tmp/env.tmp
-    rm -f /tmp/env.tmp
-    set +a
-fi
+# Skip loading .env.prod to avoid parsing issues
+# Coolify should set these through its environment variables UI
+echo "Environment variables should be configured in Coolify's environment settings"
 
 # Step 1: Clean any locked Docker configs
 echo "Cleaning Docker config..."
