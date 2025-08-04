@@ -4,7 +4,6 @@ services:
   # PostgreSQL Database with Enterprise Multitenancy
   postgres:
     image: postgres:15-alpine
-    container_name: dittofeed_postgres
     environment:
       POSTGRES_DB: dittofeed
       POSTGRES_USER: dittofeed
@@ -26,7 +25,6 @@ services:
   # Redis Cache for Workspace-Scoped Caching
   redis:
     image: redis:7-alpine
-    container_name: dittofeed_redis
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
@@ -43,7 +41,6 @@ services:
   # API Service with Enterprise Multitenancy
   api:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
-    container_name: dittofeed_api
     environment:
       NODE_ENV: ${NODE_ENV}
       DATABASE_URL: ${DATABASE_URL}
@@ -81,7 +78,6 @@ services:
   # Dashboard UI with Enterprise Multitenancy
   dashboard:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
-    container_name: dittofeed_dashboard
     environment:
       NODE_ENV: ${NODE_ENV}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
@@ -109,7 +105,6 @@ services:
   # Worker Service with Enterprise Multitenancy
   worker:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
-    container_name: dittofeed_worker
     environment:
       NODE_ENV: ${NODE_ENV}
       DATABASE_URL: ${DATABASE_URL}

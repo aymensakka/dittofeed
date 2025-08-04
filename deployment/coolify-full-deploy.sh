@@ -4,6 +4,14 @@ set -e
 
 echo "=== Starting Deployment ==="
 
+# Source environment variables if .env.prod exists
+if [ -f .env.prod ]; then
+    echo "Loading environment variables from .env.prod..."
+    set -a
+    source .env.prod
+    set +a
+fi
+
 # Step 1: Clean any locked Docker configs
 echo "Cleaning Docker config..."
 rm -rf /root/.docker/config.json* 2>/dev/null || true
