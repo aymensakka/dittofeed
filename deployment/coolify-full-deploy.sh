@@ -21,8 +21,8 @@ DOCKER_CONFIG=/tmp/docker-deploy docker pull docker.reactmotion.com/my-docker-re
 docker pull postgres:15-alpine
 docker pull redis:7-alpine
 
-# Step 4: Now run docker-compose (images are already pulled and cached)
+# Step 4: Now run docker compose (images are already pulled and cached)
 echo "Starting services..."
-docker-compose up -d --no-pull
+docker compose up -d --no-pull
 
 echo "=== Deployment Complete ==="
