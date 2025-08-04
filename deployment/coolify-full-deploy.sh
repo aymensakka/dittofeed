@@ -23,6 +23,6 @@ docker pull redis:7-alpine
 
 # Step 4: Now run docker compose (images are already pulled and cached)
 echo "Starting services..."
-docker compose up -d --no-pull
+docker compose up -d
 
 echo "=== Deployment Complete ==="
