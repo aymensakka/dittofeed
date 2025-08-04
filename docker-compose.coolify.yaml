@@ -134,4 +134,8 @@ volumes:
   postgres_data:
   redis_data:
 
-# No custom network - let Coolify manage networking
+# Use Coolify's network
+networks:
+  default:
+    name: coolify
+    external: true
