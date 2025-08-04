@@ -29,4 +29,12 @@ docker pull redis:7-alpine
 echo "Starting services..."
 docker compose -f docker-compose.coolify.yaml up -d
 
+# Step 5: Check container status
+echo "Checking container status..."
+docker ps -a | grep -E "postgres|redis|api|worker|dashboard" || true
+
+# Step 6: Show postgres logs if it exists
+echo "Checking postgres logs..."
+docker logs $(docker ps -a | grep postgres | awk '{print $1}' | head -1) 2>&1 | tail -20 || true
+
 echo "=== Deployment Complete ==="

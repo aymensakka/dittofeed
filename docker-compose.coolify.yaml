@@ -8,19 +8,14 @@ services:
       POSTGRES_DB: dittofeed
       POSTGRES_USER: dittofeed
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
-      - ./packages/backend-lib/drizzle:/docker-entrypoint-initdb.d/migrations
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
 
   # Redis Cache for Workspace-Scoped Caching
   redis:
@@ -29,14 +24,12 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
-      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: redis-server /usr/local/etc/redis/redis.conf
 
   # API Service with Enterprise Multitenancy
   api:
