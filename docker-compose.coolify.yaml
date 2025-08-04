@@ -123,6 +123,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Cloudflare Tunnel Connector
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+    networks:
+      - default
+
 volumes:
   postgres_data:
   redis_data:
