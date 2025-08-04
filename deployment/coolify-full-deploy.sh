@@ -21,8 +21,8 @@ DOCKER_CONFIG=/tmp/docker-deploy docker pull docker.reactmotion.com/my-docker-re
 docker pull postgres:15-alpine
 docker pull redis:7-alpine
 
-# Step 4: Now run docker compose (images are already pulled and cached)
+# Step 4: Now run docker compose with Coolify-specific config (no custom network)
 echo "Starting services..."
-docker compose up -d
+docker compose -f docker-compose.coolify.yaml up -d
 
 echo "=== Deployment Complete ==="
