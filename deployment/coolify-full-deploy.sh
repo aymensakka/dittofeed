@@ -7,8 +7,11 @@ echo "=== Starting Deployment ==="
 # Source environment variables if .env.prod exists
 if [ -f .env.prod ]; then
     echo "Loading environment variables from .env.prod..."
+    # Filter out lines with inline comments and source safely
     set -a
-    source .env.prod
+    grep -v '^#' .env.prod | grep '=' | sed 's/#.*//' > /tmp/env.tmp
+    source /tmp/env.tmp
+    rm -f /tmp/env.tmp
     set +a
 fi
 
