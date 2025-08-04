@@ -1,0 +1,27 @@
+tunnel: dittofeed-coolify
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # API Service
+  - hostname: api.com.caramelme.com
+    service: http://api:3001
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  # Dashboard Service  
+  - hostname: dashboard.com.caramelme.com
+    service: http://dashboard:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  # Grafana (if needed)
+  - hostname: grafana.com.caramelme.com
+    service: http://grafana:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  # Catch-all rule (required)
+  - service: http_status:404
