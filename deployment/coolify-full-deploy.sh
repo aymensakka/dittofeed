@@ -25,8 +25,16 @@ DOCKER_CONFIG=/tmp/docker-deploy docker pull docker.reactmotion.com/my-docker-re
 docker pull postgres:15-alpine
 docker pull redis:7-alpine
 
-# Step 4: Now run docker compose with Coolify-specific config (no custom network)
+# Step 4: Check if we're in Coolify environment and use their network
 echo "Starting services..."
+if [ -n "$COOLIFY_CONTAINER_NAME" ]; then
+    # We're in Coolify - use the project network
+    NETWORK_NAME="${COOLIFY_APP_UUID}_default"
+    echo "Detected Coolify environment, using network: $NETWORK_NAME"
+    docker network create $NETWORK_NAME 2>/dev/null || echo "Network already exists"
+fi
+
+# Run docker compose
 docker compose -f docker-compose.coolify.yaml up -d
 
 # Step 5: Check container status
