@@ -23,6 +23,11 @@ docker network create $NETWORK_NAME 2>/dev/null || echo "Network $NETWORK_NAME a
 
 # Start services
 echo "Starting services..."
-docker compose -f docker-compose.coolify.yaml up -d
+# Try docker compose first, fall back to docker-compose if not available
+if command -v docker-compose &> /dev/null; then
+    docker-compose -f docker-compose.coolify.yaml up -d
+else
+    docker compose -f docker-compose.coolify.yaml up -d
+fi
 
 echo "=== Deployment Complete ==="
