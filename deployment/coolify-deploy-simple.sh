@@ -4,15 +4,17 @@ set -e
 
 echo "=== Coolify Deployment Script ==="
 
-# Login to Docker registry
+# Login to Docker registry with temporary config
 echo "Logging into Docker registry..."
+export DOCKER_CONFIG=/tmp/docker-temp-$(date +%s)
+mkdir -p $DOCKER_CONFIG
 echo '9sFPGGDJUFnE4z*z4Aj9' | docker login docker.reactmotion.com -u coolify-system --password-stdin
 
-# Pull images
+# Pull images (using the same temp config)
 echo "Pulling images..."
-docker pull docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
-docker pull docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
-docker pull docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
+DOCKER_CONFIG=$DOCKER_CONFIG docker pull docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
+DOCKER_CONFIG=$DOCKER_CONFIG docker pull docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1
+DOCKER_CONFIG=$DOCKER_CONFIG docker pull docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1
 
 # Create network if it doesn't exist
 NETWORK_NAME="p0gcsc088cogco0cokco4404"
