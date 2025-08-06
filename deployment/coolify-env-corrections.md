@@ -4,7 +4,7 @@
 
 ### 1. DASHBOARD_URL (Currently has DATABASE_URL value!)
 - **Wrong**: `postgresql://dittofeed:AXRH+ft7pHxNF/aM2m6P0g==@postgres:5432/dittofeed`
-- **Correct**: `https://dashboard.com.caramelme.com`
+- **Correct**: `https://communication-dashboard.caramelme.com`
 
 ### 2. Missing Required Variables:
 - **BOOTSTRAP_WORKSPACE_ADMIN_EMAIL**: Set to `admin@example.com` or your email

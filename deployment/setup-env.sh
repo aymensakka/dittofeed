@@ -35,10 +35,10 @@ SECRET_KEY=${SECRET_KEY}
 NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 
 # URLs
-API_BASE_URL=https://api.com.caramelme.com
-DASHBOARD_URL=https://dashboard.com.caramelme.com
-NEXTAUTH_URL=https://dashboard.com.caramelme.com
-CORS_ORIGIN=https://dashboard.com.caramelme.com
+API_BASE_URL=https://communication-api.caramelme.com
+DASHBOARD_URL=https://communication-dashboard.caramelme.com
+NEXTAUTH_URL=https://communication-dashboard.caramelme.com
+CORS_ORIGIN=https://communication-dashboard.caramelme.com
 
 # Bootstrap Configuration
 BOOTSTRAP_WORKSPACE_NAME=Default
