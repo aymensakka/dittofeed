@@ -53,6 +53,8 @@ COPY --from=builder /service/packages/worker/package.json ./packages/worker/pack
 
 COPY --from=builder /service/packages/backend-lib/dist ./packages/backend-lib/dist
 COPY --from=builder /service/packages/backend-lib/package.json ./packages/backend-lib/package.json
+# Include database migration files
+COPY --from=builder /service/packages/backend-lib/drizzle ./packages/backend-lib/drizzle
 
 COPY --from=builder /service/packages/emailo/dist ./packages/emailo/dist
 COPY --from=builder /service/packages/emailo/package.json ./packages/emailo/package.json

@@ -53,6 +53,8 @@ COPY --from=builder /service/packages/api/package.json ./packages/api/package.js
 
 COPY --from=builder /service/packages/backend-lib/dist ./packages/backend-lib/dist
 COPY --from=builder /service/packages/backend-lib/package.json ./packages/backend-lib/package.json
+# Include database migration files
+COPY --from=builder /service/packages/backend-lib/drizzle ./packages/backend-lib/drizzle
 
 COPY --from=builder /service/packages/isomorphic-lib/dist ./packages/isomorphic-lib/dist
 COPY --from=builder /service/packages/isomorphic-lib/package.json ./packages/isomorphic-lib/package.json
