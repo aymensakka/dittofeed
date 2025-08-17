@@ -39,13 +39,17 @@ log_info "Building Dashboard service..."
 log_info "Logging into Docker registry..."
 echo "$REGISTRY_PASS" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
-# Build the image
+# Build the image with correct API URL
 log_info "Building Dashboard image for linux/amd64..."
+log_info "Setting NEXT_PUBLIC_API_BASE_URL=https://communication-api.caramelme.com"
 docker build \
     --platform linux/amd64 \
     -f packages/dashboard/Dockerfile \
     -t "$REGISTRY/$REPO/$SERVICE:$TAG" \
     --build-arg NODE_ENV=production \
+    --build-arg NEXT_PUBLIC_API_BASE_URL=https://communication-api.caramelme.com \
+    --build-arg NEXT_PUBLIC_API_URL=https://communication-api.caramelme.com \
+    --build-arg NEXT_PUBLIC_AUTH_MODE=single-tenant \
     .
 
 if [ $? -eq 0 ]; then

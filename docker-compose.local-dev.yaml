@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: dittofeed_postgres
+    environment:
+      POSTGRES_DB: dittofeed
+      POSTGRES_USER: dittofeed
+      POSTGRES_PASSWORD: localpass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: dittofeed_redis
+    command: redis-server --requirepass localpass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "localpass", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: dittofeed-api:local
+    container_name: dittofeed_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      AUTH_MODE: multi-tenant
+      MULTITENANCY_ENABLED: "true"
+      WORKSPACE_ISOLATION_ENABLED: "true"
+      DATABASE_URL: postgresql://dittofeed:localpass@postgres:5432/dittofeed
+      DATABASE_DIRECT_URL: postgresql://dittofeed:localpass@postgres:5432/dittofeed
+      REDIS_URL: redis://:localpass@redis:6379
+      JWT_SECRET: local-jwt-secret-32-characters-min
+      ENCRYPTION_KEY: local-encryption-key-32-chars-ok
+      SECRET_KEY: local-secret-key-32-characters-ok
+      BOOTSTRAP: "true"
+      BOOTSTRAP_SAFE: "true"
+      BOOTSTRAP_WORKSPACE_NAME: LocalWorkspace
+      BOOTSTRAP_WORKSPACE_ADMIN_EMAIL: admin@local.test
+      API_BASE_URL: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3000
+      # ClickHouse placeholders (required by config)
+      CLICKHOUSE_HOST: http://localhost:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DATABASE: dittofeed
+      # Temporal placeholders
+      TEMPORAL_ADDRESS: localhost:7233
+      TEMPORAL_NAMESPACE: default
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./packages/backend-lib/drizzle:/app/packages/backend-lib/drizzle
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  dashboard:
+    image: dittofeed-dashboard:local
+    container_name: dittofeed_dashboard
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      AUTH_MODE: multi-tenant
+      NEXTAUTH_SECRET: local-nextauth-secret-testing
+      NEXTAUTH_URL: http://localhost:3000
+      API_BASE_URL: http://api:3001
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      GOOGLE_CLIENT_ID: dummy-client-id.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: dummy-client-secret
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  worker:
+    image: dittofeed-worker:local
+    container_name: dittofeed_worker
+    depends_on:
+      - api
+      - postgres
+      - redis
+    environment:
+      NODE_ENV: production
+      AUTH_MODE: multi-tenant
+      DATABASE_URL: postgresql://dittofeed:localpass@postgres:5432/dittofeed
+      REDIS_URL: redis://:localpass@redis:6379
+      BOOTSTRAP_WORKER: "true"
+      # Temporal placeholders
+      TEMPORAL_ADDRESS: localhost:7233
+      TEMPORAL_NAMESPACE: default
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: dittofeed_local
