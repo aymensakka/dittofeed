@@ -43,8 +43,8 @@ fi
 
 print_header "Cloudflare Tunnel Update for Dittofeed"
 
-# Create and execute remote script
-cat <<'REMOTE_SCRIPT' | ssh "$REMOTE_USER@$REMOTE_HOST" "cat > /tmp/update-tunnel.sh && chmod +x /tmp/update-tunnel.sh && bash /tmp/update-tunnel.sh"
+# Create and execute remote script (using SSH key authentication)
+cat <<'REMOTE_SCRIPT' | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$REMOTE_USER@$REMOTE_HOST" "cat > /tmp/update-tunnel.sh && chmod +x /tmp/update-tunnel.sh && bash /tmp/update-tunnel.sh"
 #!/bin/bash
 
 # Colors
@@ -160,7 +160,7 @@ fi
 REMOTE_SCRIPT
 
 # Cleanup
-ssh "$REMOTE_USER@$REMOTE_HOST" "rm -f /tmp/update-tunnel.sh"
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$REMOTE_USER@$REMOTE_HOST" "rm -f /tmp/update-tunnel.sh"
 
 print_header "Next Steps"
 echo "1. Wait 30 seconds for Cloudflare tunnel to reconnect"
