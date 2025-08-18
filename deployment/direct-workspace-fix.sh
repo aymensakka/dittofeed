@@ -113,14 +113,71 @@ echo "Step 8: Checking API logs for startup errors..."
 docker logs $API_CONTAINER --tail 20 2>&1
 
 echo ""
-echo "Step 9: Restarting services with workspace created..."
+echo "Step 9: Getting IPs before restart..."
+API_IP_BEFORE=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER | head -c -1 | tr -d '\n')
+DASHBOARD_IP_BEFORE=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $DASHBOARD_CONTAINER | head -c -1 | tr -d '\n')
+echo "API IP before restart: $API_IP_BEFORE"
+echo "Dashboard IP before restart: $DASHBOARD_IP_BEFORE"
+
+echo ""
+echo "Step 10: Restarting services with workspace created..."
 docker restart $API_CONTAINER
 sleep 10
 docker restart $DASHBOARD_CONTAINER
 sleep 5
 
 echo ""
-echo "Step 10: Final verification..."
+echo "Step 11: Checking for IP changes after restart..."
+API_IP_AFTER=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER | head -c -1 | tr -d '\n')
+DASHBOARD_IP_AFTER=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $DASHBOARD_CONTAINER | head -c -1 | tr -d '\n')
+
+echo "API IP after restart: $API_IP_AFTER"
+echo "Dashboard IP after restart: $DASHBOARD_IP_AFTER"
+
+if [ "$API_IP_BEFORE" != "$API_IP_AFTER" ] || [ "$DASHBOARD_IP_BEFORE" != "$DASHBOARD_IP_AFTER" ]; then
+    echo ""
+    echo "⚠️  IMPORTANT: Container IPs have changed after restart!"
+    echo "================================================="
+    echo "IP CHANGES DETECTED - UPDATE CLOUDFLARE TUNNEL"
+    echo "================================================="
+    echo ""
+    echo "Old IPs:"
+    echo "  API: $API_IP_BEFORE → $API_IP_AFTER"
+    echo "  Dashboard: $DASHBOARD_IP_BEFORE → $DASHBOARD_IP_AFTER"
+    echo ""
+    echo "ACTION REQUIRED:"
+    echo "1. Go to Cloudflare Zero Trust Dashboard"
+    echo "2. Update your tunnel configuration:"
+    echo "   - communication-api.caramelme.com → http://$API_IP_AFTER:3001"
+    echo "   - communication-dashboard.caramelme.com → http://$DASHBOARD_IP_AFTER:3000"
+    echo ""
+    echo "Or run this command to see all container IPs:"
+    echo "   docker ps --format '{{.Names}}' | grep $PROJECT_ID | while read c; do echo \"\$c: \$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \$c)\"; done"
+    echo "================================================="
+else
+    echo "✓ IPs unchanged after restart"
+fi
+
+echo ""
+echo "Step 12: Getting all service IPs for reference..."
+echo "Current Container IPs:"
+WORKER_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "worker.*${PROJECT_ID}" | head -1)
+TEMPORAL_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "temporal.*${PROJECT_ID}" | head -1)
+CLICKHOUSE_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "clickhouse.*${PROJECT_ID}" | head -1)
+REDIS_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "redis.*${PROJECT_ID}" | head -1)
+CLOUDFLARED_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "cloudflared.*${PROJECT_ID}" | head -1)
+
+echo "  API: $API_IP_AFTER:3001"
+echo "  Dashboard: $DASHBOARD_IP_AFTER:3000"
+[ ! -z "$POSTGRES_CONTAINER" ] && echo "  Postgres: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $POSTGRES_CONTAINER | head -c -1):5432"
+[ ! -z "$WORKER_CONTAINER" ] && echo "  Worker: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $WORKER_CONTAINER | head -c -1)"
+[ ! -z "$TEMPORAL_CONTAINER" ] && echo "  Temporal: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $TEMPORAL_CONTAINER | head -c -1):7233"
+[ ! -z "$CLICKHOUSE_CONTAINER" ] && echo "  ClickHouse: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CLICKHOUSE_CONTAINER | head -c -1):8123"
+[ ! -z "$REDIS_CONTAINER" ] && echo "  Redis: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $REDIS_CONTAINER | head -c -1):6379"
+[ ! -z "$CLOUDFLARED_CONTAINER" ] && echo "  Cloudflared: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CLOUDFLARED_CONTAINER | head -c -1)"
+
+echo ""
+echo "Step 13: Final verification..."
 echo "Workspace in database:"
 docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM \"Workspace\" WHERE name = 'caramel';" 2>/dev/null
 
@@ -139,6 +196,27 @@ echo "===================================================="
 echo ""
 echo "Workspace 'caramel' has been created directly in the database."
 echo "Services have been restarted."
+echo ""
+
+# Save IP configuration to file for reference
+cat > /tmp/dittofeed-ips.txt << EOF
+Dittofeed Container IPs - $(date)
+=====================================
+API: $API_IP_AFTER:3001
+Dashboard: $DASHBOARD_IP_AFTER:3000
+
+Cloudflare Tunnel Configuration:
+- communication-api.caramelme.com → http://$API_IP_AFTER:3001
+- communication-dashboard.caramelme.com → http://$DASHBOARD_IP_AFTER:3000
+
+Project ID: $PROJECT_ID
+EOF
+
+echo "IP configuration saved to: /tmp/dittofeed-ips.txt"
+echo ""
+echo "Cloudflare Tunnel URLs to update:"
+echo "  communication-api.caramelme.com → http://$API_IP_AFTER:3001"
+echo "  communication-dashboard.caramelme.com → http://$DASHBOARD_IP_AFTER:3000"
 echo ""
 echo "Try accessing: https://communication-dashboard.caramelme.com"
 echo ""
