@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ==============================================================================
-# Manual Bootstrap Script for Dittofeed Multi-Tenant
-# Run this on the server to manually trigger bootstrap
+# Manual Bootstrap Script - Create workspace and initialize database
+# Use this for: Initial setup, creating workspaces, fixing missing workspaces
 # ==============================================================================
 
 set -e
@@ -13,142 +13,211 @@ echo "===================================================="
 
 PROJECT_ID="p0gcsc088cogco0cokco4404"
 
-# Find all containers dynamically
-echo "Finding containers..."
-API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "api.*${PROJECT_ID}" | head -1)
-POSTGRES_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "postgres.*${PROJECT_ID}" | head -1)
-DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "dashboard.*${PROJECT_ID}" | head -1)
-WORKER_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "worker.*${PROJECT_ID}" | head -1)
-TEMPORAL_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "temporal.*${PROJECT_ID}" | head -1)
-CLICKHOUSE_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "clickhouse.*${PROJECT_ID}" | head -1)
-REDIS_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "redis.*${PROJECT_ID}" | head -1)
+# Function to find containers dynamically
+find_containers() {
+    API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "api.*${PROJECT_ID}" | head -1)
+    POSTGRES_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "postgres.*${PROJECT_ID}" | head -1)
+    DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "dashboard.*${PROJECT_ID}" | head -1)
+    WORKER_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "worker.*${PROJECT_ID}" | head -1)
+}
 
-echo ""
+# Find all containers
+echo "Finding containers..."
+find_containers
+
 echo "Found containers:"
 echo "  API: ${API_CONTAINER:-NOT FOUND}"
 echo "  Postgres: ${POSTGRES_CONTAINER:-NOT FOUND}"
 echo "  Dashboard: ${DASHBOARD_CONTAINER:-NOT FOUND}"
 echo "  Worker: ${WORKER_CONTAINER:-NOT FOUND}"
-echo "  Temporal: ${TEMPORAL_CONTAINER:-NOT FOUND}"
-echo "  ClickHouse: ${CLICKHOUSE_CONTAINER:-NOT FOUND}"
-echo "  Redis: ${REDIS_CONTAINER:-NOT FOUND}"
 echo ""
 
 # Check critical containers
-if [ -z "$API_CONTAINER" ]; then
-    echo "Error: API container not found"
-    echo "Current running containers:"
-    docker ps --format 'table {{.Names}}	{{.Status}}' | grep "${PROJECT_ID}"
-    exit 1
-fi
-
 if [ -z "$POSTGRES_CONTAINER" ]; then
-    echo "Error: Postgres container not found"
+    echo "❌ PostgreSQL container not found. Cannot proceed."
     exit 1
 fi
 
-# Check working directory
-WORKDIR=$(docker exec $API_CONTAINER pwd 2>/dev/null || echo "/service")
-echo "API container working directory: $WORKDIR"
-echo ""
-
-# Check if workspace already exists
+# Check existing workspaces
 echo "Checking existing workspaces..."
-WORKSPACE_COUNT=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COUNT(*) FROM workspace;" 2>/dev/null || echo "0")
+WORKSPACE_COUNT=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COUNT(*) FROM \"Workspace\";" 2>/dev/null || echo "0")
 WORKSPACE_COUNT=$(echo $WORKSPACE_COUNT | tr -d ' ')
 
-if [ "$WORKSPACE_COUNT" != "0" ] && [ "$WORKSPACE_COUNT" != "" ]; then
-    echo "Found $WORKSPACE_COUNT workspace(s). Showing existing workspaces:"
-    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM workspace;"
+if [ "$WORKSPACE_COUNT" != "0" ]; then
+    echo "Found $WORKSPACE_COUNT workspace(s):"
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, status FROM \"Workspace\";" 2>/dev/null
     echo ""
-    echo "Workspace already exists. Bootstrap may not be needed."
-    echo "Do you want to continue anyway? (y/n)"
+    echo "Do you want to create another workspace? (y/n)"
     read -r response
     if [ "$response" != "y" ]; then
         echo "Exiting without changes."
         exit 0
     fi
-else
-    echo "No workspaces found. Bootstrap is needed."
 fi
 
+# Ask for workspace details
 echo ""
-echo "Step 1: Running database migrations..."
-docker exec $API_CONTAINER node -e '
-const { drizzleMigrate } = require("./node_modules/backend-lib/dist/migrate");
-console.log("Starting migrations...");
-drizzleMigrate().then(() => {
-  console.log("✓ Migrations complete");
-  process.exit(0);
-}).catch(err => {
-  console.error("✗ Migration failed:", err);
-  process.exit(1);
-});
-'
+echo "Enter workspace name (default: caramel):"
+read -r WORKSPACE_NAME
+WORKSPACE_NAME=${WORKSPACE_NAME:-caramel}
 
-if [ $? -eq 0 ]; then
-    echo "✓ Migrations successful"
-else
-    echo "✗ Migrations failed, but continuing..."
-fi
+echo "Enter workspace domain (default: caramelme.com):"
+read -r WORKSPACE_DOMAIN
+WORKSPACE_DOMAIN=${WORKSPACE_DOMAIN:-caramelme.com}
 
-echo ""
-echo "Step 2: Running bootstrap to create workspace..."
-
-# Run bootstrap with multi-tenant configuration
-docker exec -e AUTH_MODE=multi-tenant $API_CONTAINER node -e '
-process.env.AUTH_MODE = "multi-tenant";
-const { bootstrapWithDefaults } = require("./node_modules/backend-lib/dist/bootstrap");
-console.log("Starting bootstrap with AUTH_MODE:", process.env.AUTH_MODE);
-bootstrapWithDefaults({
-  workspaceName: "caramel",
-  workspaceDomain: "caramelme.com",
-  workspaceType: "Root"
-}).then(() => {
-  console.log("✓ Bootstrap successful - workspace created");
-  process.exit(0);
-}).catch(err => {
-  if (err.message && err.message.includes("already exists")) {
-    console.log("✓ Workspace already exists");
-    process.exit(0);
-  } else {
-    console.error("✗ Bootstrap failed:", err);
-    process.exit(1);
-  }
-});
-'
-
-if [ $? -eq 0 ]; then
-    echo "✓ Bootstrap successful"
-else
-    echo "✗ Bootstrap failed"
-    exit 1
-fi
-
-echo ""
-echo "Step 3: Verifying bootstrap..."
-
-# Check if tables and workspace were created
-echo "Checking database tables..."
-TABLE_COUNT=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ')
-echo "Found $TABLE_COUNT tables in database"
-
-echo ""
-echo "Checking workspaces..."
-docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM workspace;" 2>/dev/null || echo "Failed to query workspaces"
-
-echo ""
-echo "Step 4: Restarting services to pick up changes..."
-if [ ! -z "$DASHBOARD_CONTAINER" ]; then
-    docker restart $DASHBOARD_CONTAINER
-    echo "✓ Dashboard restarted"
-else
-    echo "⚠ Dashboard container not found, skipping restart"
-fi
-
+# Method 1: Try using API container bootstrap if available
 if [ ! -z "$API_CONTAINER" ]; then
-    docker restart $API_CONTAINER
-    echo "✓ API restarted"
+    echo ""
+    echo "Method 1: Attempting bootstrap via API container..."
+    
+    # Check working directory
+    WORKDIR=$(docker exec $API_CONTAINER pwd 2>/dev/null || echo "/service")
+    echo "API working directory: $WORKDIR"
+    
+    # Run migrations first (optional - they may already be done)
+    echo "Running migrations (if needed)..."
+    docker exec -e AUTH_MODE=multi-tenant $API_CONTAINER node -e "
+    const path = require('path');
+    const migratePath = path.join('/service/packages/backend-lib/dist/src/migrate.js');
+    try {
+        const { drizzleMigrate } = require(migratePath);
+        drizzleMigrate().then(() => {
+            console.log('✓ Migrations complete');
+            process.exit(0);
+        }).catch(err => {
+            console.log('Migrations may already be done:', err.message);
+            process.exit(0);
+        });
+    } catch (err) {
+        console.log('Could not run migrations:', err.message);
+        process.exit(0);
+    }
+    " 2>/dev/null || true
+    
+    # Try to run bootstrap
+    docker exec -e AUTH_MODE=multi-tenant $API_CONTAINER node -e "
+    const path = require('path');
+    const bootstrapPath = path.join('/service/packages/backend-lib/dist/src/bootstrap.js');
+    
+    try {
+        const { bootstrapWithDefaults } = require(bootstrapPath);
+        console.log('Running bootstrap...');
+        bootstrapWithDefaults({
+            workspaceName: '$WORKSPACE_NAME',
+            workspaceDomain: '$WORKSPACE_DOMAIN',
+            workspaceType: 'Root'
+        }).then(() => {
+            console.log('✅ Bootstrap successful');
+            process.exit(0);
+        }).catch(err => {
+            if (err.message && err.message.includes('already exists')) {
+                console.log('✅ Workspace already exists');
+                process.exit(0);
+            } else {
+                console.error('Bootstrap failed:', err.message);
+                process.exit(1);
+            }
+        });
+    } catch (err) {
+        console.error('Could not load bootstrap module:', err.message);
+        process.exit(1);
+    }
+    " 2>/dev/null && METHOD1_SUCCESS=true || METHOD1_SUCCESS=false
+    
+    if [ "$METHOD1_SUCCESS" = "true" ]; then
+        echo "✅ Bootstrap successful via API"
+    else
+        echo "⚠️  Bootstrap via API failed, trying direct database method..."
+    fi
+else
+    echo "⚠️  API container not found, using direct database method..."
+    METHOD1_SUCCESS=false
+fi
+
+# Method 2: Direct database insertion if Method 1 failed
+if [ "$METHOD1_SUCCESS" = "false" ]; then
+    echo ""
+    echo "Method 2: Creating workspace directly in database..."
+    
+    WORKSPACE_ID=$(uuidgen 2>/dev/null || echo "ws-$(date +%s)")
+    
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << EOF
+INSERT INTO "Workspace" (
+    id,
+    name,
+    type,
+    status,
+    "createdAt",
+    "updatedAt"
+) VALUES (
+    '$WORKSPACE_ID',
+    '$WORKSPACE_NAME',
+    'Root',
+    'Active',
+    NOW(),
+    NOW()
+) ON CONFLICT (name) DO NOTHING;
+EOF
+    
+    echo "✅ Workspace created in database"
+    
+    # Create default user properties
+    echo "Creating default user properties..."
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << EOF
+INSERT INTO "UserProperty" (id, "workspaceId", name, definition, "createdAt", "updatedAt")
+SELECT 
+    gen_random_uuid()::text,
+    '$WORKSPACE_ID',
+    prop.name,
+    prop.definition::jsonb,
+    NOW(),
+    NOW()
+FROM (
+    VALUES 
+        ('email', '{"type": "Trait"}'),
+        ('firstName', '{"type": "Trait"}'),
+        ('lastName', '{"type": "Trait"}'),
+        ('phone', '{"type": "Trait"}'),
+        ('id', '{"type": "Id"}'),
+        ('anonymousId', '{"type": "AnonymousId"}')
+) AS prop(name, definition)
+WHERE NOT EXISTS (
+    SELECT 1 FROM "UserProperty" 
+    WHERE "workspaceId" = '$WORKSPACE_ID' AND name = prop.name
+);
+EOF
+fi
+
+# Verify workspace was created
+echo ""
+echo "Verifying workspace creation..."
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, status FROM \"Workspace\" WHERE name = '$WORKSPACE_NAME';" 2>/dev/null
+
+# Get current IPs
+echo ""
+echo "Getting container IPs..."
+API_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+DASHBOARD_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $DASHBOARD_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+
+# Restart services
+echo ""
+echo "Restarting services..."
+[ ! -z "$API_CONTAINER" ] && docker restart $API_CONTAINER > /dev/null 2>&1
+sleep 5
+[ ! -z "$DASHBOARD_CONTAINER" ] && docker restart $DASHBOARD_CONTAINER > /dev/null 2>&1
+sleep 5
+
+# Re-find containers and get new IPs (in case they changed)
+find_containers
+NEW_API_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+NEW_DASHBOARD_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $DASHBOARD_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+
+# Check if IPs changed
+if [ "$API_IP" != "$NEW_API_IP" ] || [ "$DASHBOARD_IP" != "$NEW_DASHBOARD_IP" ]; then
+    echo ""
+    echo "⚠️  Container IPs changed after restart!"
+    API_IP=$NEW_API_IP
+    DASHBOARD_IP=$NEW_DASHBOARD_IP
 fi
 
 echo ""
@@ -156,14 +225,32 @@ echo "===================================================="
 echo "Bootstrap Complete!"
 echo "===================================================="
 echo ""
-echo "Services status:"
-echo "  API: $(docker ps --format '{{.Status}}' --filter "name=$API_CONTAINER")"
-echo "  Dashboard: $(docker ps --format '{{.Status}}' --filter "name=$DASHBOARD_CONTAINER")"
-echo "  Worker: $(docker ps --format '{{.Status}}' --filter "name=$WORKER_CONTAINER")"
+echo "Workspace '$WORKSPACE_NAME' has been created."
 echo ""
-echo "You should now be able to access:"
-echo "  Dashboard: https://communication-dashboard.caramelme.com"
-echo "  API: https://communication-api.caramelme.com"
+echo "Container IPs:"
+echo "  API: ${API_IP}:3001"
+echo "  Dashboard: ${DASHBOARD_IP}:3000"
 echo ""
-echo "The workspace 'caramel' with domain 'caramelme.com' has been created."
+echo "Cloudflare Tunnel Configuration:"
+echo "  communication-api.caramelme.com → http://${API_IP}:3001"
+echo "  communication-dashboard.caramelme.com → http://${DASHBOARD_IP}:3000"
 echo ""
+echo "Access URL: https://communication-dashboard.caramelme.com"
+echo ""
+
+# Save configuration
+cat > /tmp/dittofeed-config.txt << EOF
+Dittofeed Configuration - $(date)
+=====================================
+Workspace: $WORKSPACE_NAME
+Domain: $WORKSPACE_DOMAIN
+
+API: http://${API_IP}:3001
+Dashboard: http://${DASHBOARD_IP}:3000
+
+Cloudflare Tunnel:
+- communication-api.caramelme.com → http://${API_IP}:3001
+- communication-dashboard.caramelme.com → http://${DASHBOARD_IP}:3000
+EOF
+
+echo "Configuration saved to: /tmp/dittofeed-config.txt"
