@@ -67,8 +67,8 @@ docker run -d \
     -e NEXT_PUBLIC_AUTH_MODE=multi-tenant \
     -e NEXT_PUBLIC_AUTH_PROVIDER=google \
     \
-    -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-531006554917-eohsagqg81hclmuoa9j5l09dlkoomj43.apps.googleusercontent.com}" \
-    -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-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}" \
+    -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-your-google-client-id-here}" \
+    -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-your-google-client-secret-here}" \
     \
     -e SECRET_KEY=GEGL1RHjFVOxIO80Dp8+ODlZPOjm2IDBJB/UunHlf3c= \
     -e JWT_SECRET=your-jwt-secret-32-chars-minimum \
