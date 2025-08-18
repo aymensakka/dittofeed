@@ -262,13 +262,136 @@ docker restart $DASHBOARD_CONTAINER
 sleep 5
 
 echo ""
-echo "Step 10: Final verification..."
+echo "Step 10: Verifying IPs after restart (Coolify may change them)..."
+
+# Get NEW container IPs after restart
+NEW_API_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER | head -c -1 | tr -d '\n')
+NEW_POSTGRES_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $POSTGRES_CONTAINER | head -c -1 | tr -d '\n')
+NEW_DASHBOARD_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $DASHBOARD_CONTAINER | head -c -1 | tr -d '\n')
+NEW_TEMPORAL_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $TEMPORAL_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+NEW_CLICKHOUSE_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CLICKHOUSE_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+NEW_REDIS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $REDIS_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
+
+echo ""
+echo "IP Address Changes:"
+if [ "$API_IP" != "$NEW_API_IP" ]; then
+    echo "  ⚠️  API IP changed: $API_IP → $NEW_API_IP"
+    API_IP=$NEW_API_IP
+    IP_CHANGED=true
+else
+    echo "  ✓ API IP unchanged: $API_IP"
+fi
+
+if [ "$POSTGRES_IP" != "$NEW_POSTGRES_IP" ]; then
+    echo "  ⚠️  Postgres IP changed: $POSTGRES_IP → $NEW_POSTGRES_IP"
+    POSTGRES_IP=$NEW_POSTGRES_IP
+    IP_CHANGED=true
+else
+    echo "  ✓ Postgres IP unchanged: $POSTGRES_IP"
+fi
+
+if [ "$DASHBOARD_IP" != "$NEW_DASHBOARD_IP" ]; then
+    echo "  ⚠️  Dashboard IP changed: $DASHBOARD_IP → $NEW_DASHBOARD_IP"
+    DASHBOARD_IP=$NEW_DASHBOARD_IP
+    IP_CHANGED=true
+else
+    echo "  ✓ Dashboard IP unchanged: $DASHBOARD_IP"
+fi
+
+[ ! -z "$TEMPORAL_IP" ] && [ "$TEMPORAL_IP" != "$NEW_TEMPORAL_IP" ] && echo "  ⚠️  Temporal IP changed: $TEMPORAL_IP → $NEW_TEMPORAL_IP" && TEMPORAL_IP=$NEW_TEMPORAL_IP && IP_CHANGED=true
+[ ! -z "$CLICKHOUSE_IP" ] && [ "$CLICKHOUSE_IP" != "$NEW_CLICKHOUSE_IP" ] && echo "  ⚠️  ClickHouse IP changed: $CLICKHOUSE_IP → $NEW_CLICKHOUSE_IP" && CLICKHOUSE_IP=$NEW_CLICKHOUSE_IP && IP_CHANGED=true
+[ ! -z "$REDIS_IP" ] && [ "$REDIS_IP" != "$NEW_REDIS_IP" ] && echo "  ⚠️  Redis IP changed: $REDIS_IP → $NEW_REDIS_IP" && REDIS_IP=$NEW_REDIS_IP && IP_CHANGED=true
+
+# If IPs changed, update environment variables again
+if [ "$IP_CHANGED" = "true" ]; then
+    echo ""
+    echo "Step 11: Updating environment variables with new IPs..."
+    
+    # Update Dashboard with new IPs
+    if [ ! -z "$DASHBOARD_CONTAINER" ]; then
+        echo "Updating dashboard environment with new IPs..."
+        cat > /tmp/fix_dashboard_ips.sh << EOF
+#!/bin/sh
+export API_BASE_URL="http://${API_IP}:3001"
+export NEXT_PUBLIC_API_BASE_URL="http://${API_IP}:3001"
+export INTERNAL_API_URL="http://${API_IP}:3001"
+export DATABASE_HOST="${POSTGRES_IP}"
+export DATABASE_URL="postgresql://dittofeed:\${DATABASE_PASSWORD}@${POSTGRES_IP}:5432/dittofeed"
+[ ! -z "${CLICKHOUSE_IP}" ] && export CLICKHOUSE_HOST="http://${CLICKHOUSE_IP}:8123"
+[ ! -z "${REDIS_IP}" ] && export REDIS_HOST="${REDIS_IP}"
+[ ! -z "${TEMPORAL_IP}" ] && export TEMPORAL_ADDRESS="${TEMPORAL_IP}:7233"
+echo "Dashboard environment updated with new IPs"
+EOF
+        docker cp /tmp/fix_dashboard_ips.sh $DASHBOARD_CONTAINER:/tmp/
+        docker exec $DASHBOARD_CONTAINER sh /tmp/fix_dashboard_ips.sh
+    fi
+    
+    # Update API with new IPs
+    if [ ! -z "$API_CONTAINER" ]; then
+        echo "Updating API environment with new IPs..."
+        cat > /tmp/fix_api_ips.sh << EOF
+#!/bin/sh
+export DATABASE_HOST="${POSTGRES_IP}"
+export DATABASE_URL="postgresql://dittofeed:\${DATABASE_PASSWORD}@${POSTGRES_IP}:5432/dittofeed"
+export DASHBOARD_URL="http://${DASHBOARD_IP}:3000"
+[ ! -z "${CLICKHOUSE_IP}" ] && export CLICKHOUSE_HOST="http://${CLICKHOUSE_IP}:8123"
+[ ! -z "${REDIS_IP}" ] && export REDIS_HOST="${REDIS_IP}"
+[ ! -z "${TEMPORAL_IP}" ] && export TEMPORAL_ADDRESS="${TEMPORAL_IP}:7233"
+echo "API environment updated with new IPs"
+EOF
+        docker cp /tmp/fix_api_ips.sh $API_CONTAINER:/tmp/
+        docker exec $API_CONTAINER sh /tmp/fix_api_ips.sh
+    fi
+    
+    # Update Worker with new IPs
+    if [ ! -z "$WORKER_CONTAINER" ]; then
+        echo "Updating Worker environment with new IPs..."
+        cat > /tmp/fix_worker_ips.sh << EOF
+#!/bin/sh
+export DATABASE_HOST="${POSTGRES_IP}"
+export DATABASE_URL="postgresql://dittofeed:\${DATABASE_PASSWORD}@${POSTGRES_IP}:5432/dittofeed"
+export API_URL="http://${API_IP}:3001"
+[ ! -z "${CLICKHOUSE_IP}" ] && export CLICKHOUSE_HOST="http://${CLICKHOUSE_IP}:8123"
+[ ! -z "${REDIS_IP}" ] && export REDIS_HOST="${REDIS_IP}"
+[ ! -z "${TEMPORAL_IP}" ] && export TEMPORAL_ADDRESS="${TEMPORAL_IP}:7233"
+echo "Worker environment updated with new IPs"
+EOF
+        docker cp /tmp/fix_worker_ips.sh $WORKER_CONTAINER:/tmp/
+        docker exec $WORKER_CONTAINER sh /tmp/fix_worker_ips.sh
+    fi
+    
+    echo ""
+    echo "Step 12: Final restart with corrected IPs..."
+    echo "Restarting services again with updated IPs..."
+    docker restart $API_CONTAINER
+    sleep 3
+    [ ! -z "$WORKER_CONTAINER" ] && docker restart $WORKER_CONTAINER
+    sleep 2
+    docker restart $DASHBOARD_CONTAINER
+    sleep 5
+fi
+
+echo ""
+echo "Step 13: Final connectivity verification..."
+echo ""
+
+# Test connections with final IPs
+echo "Testing connections with final IPs:"
+docker exec $API_CONTAINER sh -c "nc -zv ${POSTGRES_IP} 5432" 2>&1 | grep -q "succeeded" && echo "  ✓ API → Database connection OK" || echo "  ✗ API → Database connection failed"
+[ ! -z "$TEMPORAL_IP" ] && docker exec $API_CONTAINER sh -c "nc -zv ${TEMPORAL_IP} 7233" 2>&1 | grep -q "succeeded" && echo "  ✓ API → Temporal connection OK" || echo "  ✗ API → Temporal connection failed"
+[ ! -z "$CLICKHOUSE_IP" ] && docker exec $API_CONTAINER sh -c "nc -zv ${CLICKHOUSE_IP} 8123" 2>&1 | grep -q "succeeded" && echo "  ✓ API → ClickHouse connection OK" || echo "  ✗ API → ClickHouse connection failed"
+[ ! -z "$REDIS_IP" ] && docker exec $API_CONTAINER sh -c "nc -zv ${REDIS_IP} 6379" 2>&1 | grep -q "succeeded" && echo "  ✓ API → Redis connection OK" || echo "  ✗ API → Redis connection failed"
+
+# Test dashboard to API connection
+docker exec $DASHBOARD_CONTAINER sh -c "nc -zv ${API_IP} 3001" 2>&1 | grep -q "succeeded" && echo "  ✓ Dashboard → API connection OK" || echo "  ✗ Dashboard → API connection failed"
+
 echo ""
 echo "Service Status:"
 for container in "$API_CONTAINER" "$DASHBOARD_CONTAINER" "$WORKER_CONTAINER" "$TEMPORAL_CONTAINER" "$POSTGRES_CONTAINER" "$CLICKHOUSE_CONTAINER" "$REDIS_CONTAINER"; do
     if [ ! -z "$container" ]; then
         STATUS=$(docker inspect -f '{{.State.Status}}' $container 2>/dev/null)
-        echo "  $container: $STATUS"
+        HEALTH=$(docker inspect -f '{{.State.Health.Status}}' $container 2>/dev/null || echo "no healthcheck")
+        echo "  $container: $STATUS (health: $HEALTH)"
     fi
 done
 
@@ -277,7 +400,7 @@ echo "===================================================="
 echo "Bootstrap and Network Configuration Complete!"
 echo "===================================================="
 echo ""
-echo "Network Configuration:"
+echo "Final Network Configuration (after restart):"
 echo "  API Internal URL: http://${API_IP}:3001"
 echo "  Dashboard Internal URL: http://${DASHBOARD_IP}:3000"
 echo "  Database: postgresql://dittofeed:****@${POSTGRES_IP}:5432/dittofeed"
@@ -291,9 +414,47 @@ echo "  API: https://communication-api.caramelme.com"
 echo ""
 echo "The workspace 'caramel' with domain 'caramelme.com' has been configured."
 echo ""
+
+if [ "$IP_CHANGED" = "true" ]; then
+    echo "⚠️  WARNING: Container IPs changed after restart!"
+    echo "   Services have been reconfigured with the new IPs."
+    echo ""
+fi
+
 echo "Note: If you still see 404 errors, wait 30 seconds for services to fully start,"
 echo "then try accessing the dashboard again."
 echo ""
 
+# Save final configuration for reference
+cat > /tmp/dittofeed-network-config.txt << EOF
+Dittofeed Network Configuration - $(date)
+==========================================
+API Container: $API_CONTAINER
+API IP: ${API_IP}
+
+Dashboard Container: $DASHBOARD_CONTAINER
+Dashboard IP: ${DASHBOARD_IP}
+
+Database Container: $POSTGRES_CONTAINER
+Database IP: ${POSTGRES_IP}
+
+Temporal Container: $TEMPORAL_CONTAINER
+Temporal IP: ${TEMPORAL_IP}
+
+ClickHouse Container: $CLICKHOUSE_CONTAINER
+ClickHouse IP: ${CLICKHOUSE_IP}
+
+Redis Container: $REDIS_CONTAINER
+Redis IP: ${REDIS_IP}
+
+Worker Container: $WORKER_CONTAINER
+
+Project ID: ${PROJECT_ID}
+EOF
+
+echo "Configuration saved to: /tmp/dittofeed-network-config.txt"
+echo ""
+
 # Clean up temp files
 rm -f /tmp/update_dashboard_env.sh /tmp/update_api_env.sh /tmp/update_worker_env.sh
+rm -f /tmp/fix_dashboard_ips.sh /tmp/fix_api_ips.sh /tmp/fix_worker_ips.sh
