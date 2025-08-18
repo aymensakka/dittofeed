@@ -32,7 +32,7 @@ echo ""
 # First, run database migrations
 echo "Step 1: Running database migrations..."
 docker exec $API_CONTAINER node -e '
-const { drizzleMigrate } = require("backend-lib/dist/migrate");
+const { drizzleMigrate } = require("./node_modules/backend-lib/dist/migrate");
 console.log("Starting migrations...");
 drizzleMigrate().then(() => {
   console.log("✓ Migrations complete");
@@ -55,7 +55,7 @@ echo "Step 2: Running bootstrap to create workspace..."
 # Run bootstrap with multi-tenant configuration
 docker exec -e AUTH_MODE=multi-tenant $API_CONTAINER node -e '
 process.env.AUTH_MODE = "multi-tenant";
-const { bootstrapWithDefaults } = require("backend-lib/dist/bootstrap");
+const { bootstrapWithDefaults } = require("./node_modules/backend-lib/dist/bootstrap");
 console.log("Starting bootstrap with AUTH_MODE:", process.env.AUTH_MODE);
 bootstrapWithDefaults({
   workspaceName: "caramel",
