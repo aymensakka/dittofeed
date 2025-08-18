@@ -12,6 +12,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./deployment/init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ./deployment/init-temporal-db.sql:/docker-entrypoint-initdb.d/02-temporal.sql
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c wal_level=replica
+      -c max_wal_size=1GB
+      -c min_wal_size=80MB
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
@@ -67,6 +75,10 @@ services:
       SKIP_SCHEMA_SETUP: false
       SKIP_DEFAULT_NAMESPACE_CREATION: false
       TEMPORAL_CLI_ADDRESS: temporal:7233
+      SQL_TLS: false
+      SQL_TLS_ENABLED: false
+      POSTGRES_TLS_ENABLED: false
+      POSTGRES_TLS_DISABLE_HOST_VERIFICATION: true
     depends_on:
       postgres:
         condition: service_healthy
