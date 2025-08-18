@@ -193,9 +193,44 @@ fi
 
 if [ "$RUN_BOOTSTRAP" = "true" ]; then
     echo ""
-    echo "Step 6: Running database migrations..."
+    echo "Step 6: Checking module structure..."
+    echo "Working directory:"
+    docker exec $API_CONTAINER pwd
+    echo ""
+    echo "Checking for backend-lib:"
+    docker exec $API_CONTAINER ls -la node_modules/backend-lib/dist/ 2>/dev/null | head -5 || echo "Not in node_modules"
+    docker exec $API_CONTAINER ls -la dist/node_modules/backend-lib/dist/ 2>/dev/null | head -5 || echo "Not in dist/node_modules"
+    
+    echo ""
+    echo "Step 7: Running database migrations..."
+    # Try different module paths
     docker exec $API_CONTAINER node -e '
-    const { drizzleMigrate } = require("./node_modules/backend-lib/dist/migrate");
+    let migrate;
+    try {
+        // Try path 1: direct node_modules
+        migrate = require("backend-lib/dist/migrate");
+        console.log("Found migrate in backend-lib/dist/migrate");
+    } catch (e1) {
+        try {
+            // Try path 2: ./node_modules
+            migrate = require("./node_modules/backend-lib/dist/migrate");
+            console.log("Found migrate in ./node_modules/backend-lib/dist/migrate");
+        } catch (e2) {
+            try {
+                // Try path 3: dist/node_modules (compiled)
+                migrate = require("./dist/node_modules/backend-lib/dist/migrate");
+                console.log("Found migrate in ./dist/node_modules/backend-lib/dist/migrate");
+            } catch (e3) {
+                console.error("Could not find migrate module. Tried:");
+                console.error("  - backend-lib/dist/migrate");
+                console.error("  - ./node_modules/backend-lib/dist/migrate");
+                console.error("  - ./dist/node_modules/backend-lib/dist/migrate");
+                process.exit(1);
+            }
+        }
+    }
+    
+    const { drizzleMigrate } = migrate;
     console.log("Starting migrations...");
     drizzleMigrate().then(() => {
       console.log("✓ Migrations complete");
@@ -204,10 +239,10 @@ if [ "$RUN_BOOTSTRAP" = "true" ]; then
       console.error("✗ Migration failed:", err);
       process.exit(1);
     });
-    '
+    ' || echo "Migration attempt failed"
 
     echo ""
-    echo "Step 7: Running bootstrap to create workspace..."
+    echo "Step 8: Running bootstrap to create workspace..."
     
     # Run bootstrap with multi-tenant configuration and proper networking
     docker exec \
@@ -218,7 +253,30 @@ if [ "$RUN_BOOTSTRAP" = "true" ]; then
         -e TEMPORAL_ADDRESS="${TEMPORAL_IP}:7233" \
         $API_CONTAINER node -e '
     process.env.AUTH_MODE = "multi-tenant";
-    const { bootstrapWithDefaults } = require("./node_modules/backend-lib/dist/bootstrap");
+    
+    let bootstrap;
+    try {
+        // Try path 1: direct require
+        bootstrap = require("backend-lib/dist/bootstrap");
+        console.log("Found bootstrap in backend-lib/dist/bootstrap");
+    } catch (e1) {
+        try {
+            // Try path 2: ./node_modules
+            bootstrap = require("./node_modules/backend-lib/dist/bootstrap");
+            console.log("Found bootstrap in ./node_modules/backend-lib/dist/bootstrap");
+        } catch (e2) {
+            try {
+                // Try path 3: dist/node_modules (compiled)
+                bootstrap = require("./dist/node_modules/backend-lib/dist/bootstrap");
+                console.log("Found bootstrap in ./dist/node_modules/backend-lib/dist/bootstrap");
+            } catch (e3) {
+                console.error("Could not find bootstrap module");
+                process.exit(1);
+            }
+        }
+    }
+    
+    const { bootstrapWithDefaults } = bootstrap;
     console.log("Starting bootstrap with AUTH_MODE:", process.env.AUTH_MODE);
     console.log("Database URL:", process.env.DATABASE_URL);
     bootstrapWithDefaults({
@@ -237,16 +295,16 @@ if [ "$RUN_BOOTSTRAP" = "true" ]; then
         process.exit(1);
       }
     });
-    '
+    ' || echo "Bootstrap attempt failed"
 
     echo ""
-    echo "Step 8: Verifying bootstrap..."
+    echo "Step 9: Verifying bootstrap..."
     echo "Checking workspaces..."
     docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM workspace;" 2>/dev/null || echo "Failed to query workspaces"
 fi
 
 echo ""
-echo "Step 9: Restarting services with updated network configuration..."
+echo "Step 10: Restarting services with updated network configuration..."
 
 # Restart services in correct order
 echo "Restarting API..."
