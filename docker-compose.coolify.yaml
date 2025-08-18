@@ -63,7 +63,9 @@ services:
       POSTGRES_USER: dittofeed
       POSTGRES_PWD: ${POSTGRES_PASSWORD}
       POSTGRES_SEEDS: postgres
-      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      SKIP_SCHEMA_SETUP: false
+      SKIP_DEFAULT_NAMESPACE_CREATION: false
+      TEMPORAL_CLI_ADDRESS: temporal:7233
     depends_on:
       postgres:
         condition: service_healthy
@@ -174,14 +176,13 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       MULTITENANCY_ENABLED: "true"
       ENABLE_WORKSPACE_QUOTA: "true"
-      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-localhost:7233}
+      TEMPORAL_ADDRESS: temporal:7233
       WORKER_ID: ${WORKER_ID:-worker-1}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       CLICKHOUSE_DATABASE: dittofeed
-      TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: default
       WRITE_MODE: ch-sync
     depends_on:
