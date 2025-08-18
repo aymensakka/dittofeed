@@ -76,12 +76,10 @@ services:
       SKIP_DEFAULT_NAMESPACE_CREATION: false
       TEMPORAL_CLI_ADDRESS: temporal:7233
       TEMPORAL_ADDRESS: temporal:7233
-      TEMPORAL_CLI_SHOW_STACKS: 1
       SQL_TLS: false
       SQL_TLS_ENABLED: false
       POSTGRES_TLS_ENABLED: false
       POSTGRES_TLS_DISABLE_HOST_VERIFICATION: true
-      BIND_ON_IP: temporal
     depends_on:
       postgres:
         condition: service_healthy
