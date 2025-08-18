@@ -32,12 +32,12 @@ print_info() {
 }
 
 # Configuration
-REMOTE_HOST="${1:-91.107.214.94}"
+REMOTE_HOST="${1:-46.62.161.115}"
 REMOTE_USER="${2:-root}"
 
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     echo "Usage: $0 [coolify-server-ip] [username]"
-    echo "Example: $0 91.107.214.94 root"
+    echo "Example: $0 46.62.161.115 root"
     exit 0
 fi
 
