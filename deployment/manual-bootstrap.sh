@@ -24,19 +24,24 @@ fi
 echo "Found API container: $API_CONTAINER"
 echo ""
 
+# Check working directory first
+WORKDIR=$(docker exec $API_CONTAINER pwd)
+echo "API container working directory: $WORKDIR"
+echo ""
+
 # First, run database migrations
 echo "Step 1: Running database migrations..."
-docker exec $API_CONTAINER sh -c "cd /app && node -e '
-const { drizzleMigrate } = require(\"backend-lib/dist/migrate\");
-console.log(\"Starting migrations...\");
+docker exec $API_CONTAINER node -e '
+const { drizzleMigrate } = require("backend-lib/dist/migrate");
+console.log("Starting migrations...");
 drizzleMigrate().then(() => {
-  console.log(\"✓ Migrations complete\");
+  console.log("✓ Migrations complete");
   process.exit(0);
 }).catch(err => {
-  console.error(\"✗ Migration failed:\", err);
+  console.error("✗ Migration failed:", err);
   process.exit(1);
 });
-'"
+'
 
 if [ $? -eq 0 ]; then
     echo "✓ Migrations successful"
@@ -48,27 +53,27 @@ echo ""
 echo "Step 2: Running bootstrap to create workspace..."
 
 # Run bootstrap with multi-tenant configuration
-docker exec $API_CONTAINER sh -c "cd /app && AUTH_MODE=multi-tenant node -e '
-process.env.AUTH_MODE = \"multi-tenant\";
-const { bootstrapWithDefaults } = require(\"backend-lib/dist/bootstrap\");
-console.log(\"Starting bootstrap with AUTH_MODE:\", process.env.AUTH_MODE);
+docker exec -e AUTH_MODE=multi-tenant $API_CONTAINER node -e '
+process.env.AUTH_MODE = "multi-tenant";
+const { bootstrapWithDefaults } = require("backend-lib/dist/bootstrap");
+console.log("Starting bootstrap with AUTH_MODE:", process.env.AUTH_MODE);
 bootstrapWithDefaults({
-  workspaceName: \"caramel\",
-  workspaceDomain: \"caramelme.com\",
-  workspaceType: \"Root\"
+  workspaceName: "caramel",
+  workspaceDomain: "caramelme.com",
+  workspaceType: "Root"
 }).then(() => {
-  console.log(\"✓ Bootstrap successful - workspace created\");
+  console.log("✓ Bootstrap successful - workspace created");
   process.exit(0);
 }).catch(err => {
-  if (err.message && err.message.includes(\"already exists\")) {
-    console.log(\"✓ Workspace already exists\");
+  if (err.message && err.message.includes("already exists")) {
+    console.log("✓ Workspace already exists");
     process.exit(0);
   } else {
-    console.error(\"✗ Bootstrap failed:\", err);
+    console.error("✗ Bootstrap failed:", err);
     process.exit(1);
   }
 });
-'"
+'
 
 if [ $? -eq 0 ]; then
     echo "✓ Bootstrap successful"
