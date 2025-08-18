@@ -45,7 +45,7 @@ services:
       - clickhouse_logs:/var/log/clickhouse-server
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
