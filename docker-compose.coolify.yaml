@@ -32,6 +32,48 @@ services:
       timeout: 5s
       retries: 5
 
+  # ClickHouse for Analytics and Event Storage
+  clickhouse:
+    image: clickhouse/clickhouse-server:23-alpine
+    environment:
+      CLICKHOUSE_DB: dittofeed
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # Temporal Workflow Engine
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: dittofeed
+      POSTGRES_PWD: ${POSTGRES_PASSWORD}
+      POSTGRES_SEEDS: postgres
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "tctl", "workflow", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # API Service with Enterprise Multitenancy
   api:
     image: docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1
@@ -52,7 +94,14 @@ services:
       MULTITENANCY_ENABLED: "true"
       ENABLE_WORKSPACE_QUOTA: "true"
       ENABLE_MULTI_PARENT: "true"
-      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-localhost}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: dittofeed
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      WRITE_MODE: ch-sync
       BOOTSTRAP_WORKSPACE_NAME: ${BOOTSTRAP_WORKSPACE_NAME}
       BOOTSTRAP_WORKSPACE_ADMIN_EMAIL: ${BOOTSTRAP_WORKSPACE_ADMIN_EMAIL}
       API_BASE_URL: ${API_BASE_URL:-http://localhost:3001}
@@ -61,6 +110,10 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      temporal:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -87,6 +140,13 @@ services:
       ENABLE_WORKSPACE_QUOTA: "true"
       NEXT_PUBLIC_API_BASE_URL: ${API_BASE_URL:-http://localhost:3001}
       NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: dittofeed
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
     depends_on:
       - api
     restart: unless-stopped
@@ -116,11 +176,22 @@ services:
       ENABLE_WORKSPACE_QUOTA: "true"
       TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-localhost:7233}
       WORKER_ID: ${WORKER_ID:-worker-1}
-      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-localhost}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-dittofeed}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: dittofeed
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      WRITE_MODE: ch-sync
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      temporal:
         condition: service_healthy
     restart: unless-stopped
 
@@ -133,5 +204,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  clickhouse_data:
+  clickhouse_logs:
 
 # Let Coolify manage the network - don't specify any network
