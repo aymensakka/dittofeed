@@ -75,20 +75,23 @@ services:
       SKIP_SCHEMA_SETUP: false
       SKIP_DEFAULT_NAMESPACE_CREATION: false
       TEMPORAL_CLI_ADDRESS: temporal:7233
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_SHOW_STACKS: 1
       SQL_TLS: false
       SQL_TLS_ENABLED: false
       POSTGRES_TLS_ENABLED: false
       POSTGRES_TLS_DISABLE_HOST_VERIFICATION: true
+      BIND_ON_IP: 0.0.0.0
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "tctl", "workflow", "list"]
+      test: ["CMD", "tctl", "--address", "temporal:7233", "workflow", "list"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 90s
 
   # API Service with Enterprise Multitenancy
   api:
