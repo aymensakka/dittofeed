@@ -10,7 +10,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./deployment/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./deployment/init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./deployment/init-temporal-db.sql:/docker-entrypoint-initdb.d/02-temporal.sql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dittofeed -d dittofeed"]
@@ -74,7 +75,8 @@ services:
       test: ["CMD", "tctl", "workflow", "list"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 60s
 
   # API Service with Enterprise Multitenancy
   api:
@@ -204,7 +206,11 @@ services:
 
 volumes:
   postgres_data:
+    external: true
+    name: p0gcsc088cogco0cokco4404_postgres-data
   redis_data:
+    external: true
+    name: p0gcsc088cogco0cokco4404_redis-data
   clickhouse_data:
   clickhouse_logs:
 
