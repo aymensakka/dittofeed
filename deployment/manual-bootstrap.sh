@@ -13,12 +13,22 @@ echo "===================================================="
 
 PROJECT_ID="p0gcsc088cogco0cokco4404"
 
+# Show all containers first
+echo "Current containers:"
+docker ps --format 'table {{.Names}}	{{.Status}}' | grep -E "${PROJECT_ID}" | head -10
+echo ""
+
 # Find API container
 API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "api.*${PROJECT_ID}" | head -1)
 
 if [ -z "$API_CONTAINER" ]; then
     echo "Error: API container not found"
-    exit 1
+    echo "Trying alternative pattern..."
+    API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -i "api" | grep "${PROJECT_ID}" | head -1)
+    if [ -z "$API_CONTAINER" ]; then
+        echo "Still not found. Please check container names above."
+        exit 1
+    fi
 fi
 
 echo "Found API container: $API_CONTAINER"
