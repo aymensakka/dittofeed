@@ -13,33 +13,66 @@ echo "===================================================="
 
 PROJECT_ID="p0gcsc088cogco0cokco4404"
 
-# Show all containers first
-echo "Current containers:"
-docker ps --format 'table {{.Names}}	{{.Status}}' | grep -E "${PROJECT_ID}" | head -10
+# Find all containers dynamically
+echo "Finding containers..."
+API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "api.*${PROJECT_ID}" | head -1)
+POSTGRES_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "postgres.*${PROJECT_ID}" | head -1)
+DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "dashboard.*${PROJECT_ID}" | head -1)
+WORKER_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "worker.*${PROJECT_ID}" | head -1)
+TEMPORAL_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "temporal.*${PROJECT_ID}" | head -1)
+CLICKHOUSE_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "clickhouse.*${PROJECT_ID}" | head -1)
+REDIS_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "redis.*${PROJECT_ID}" | head -1)
+
+echo ""
+echo "Found containers:"
+echo "  API: ${API_CONTAINER:-NOT FOUND}"
+echo "  Postgres: ${POSTGRES_CONTAINER:-NOT FOUND}"
+echo "  Dashboard: ${DASHBOARD_CONTAINER:-NOT FOUND}"
+echo "  Worker: ${WORKER_CONTAINER:-NOT FOUND}"
+echo "  Temporal: ${TEMPORAL_CONTAINER:-NOT FOUND}"
+echo "  ClickHouse: ${CLICKHOUSE_CONTAINER:-NOT FOUND}"
+echo "  Redis: ${REDIS_CONTAINER:-NOT FOUND}"
 echo ""
 
-# Find API container
-API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "api.*${PROJECT_ID}" | head -1)
-
+# Check critical containers
 if [ -z "$API_CONTAINER" ]; then
     echo "Error: API container not found"
-    echo "Trying alternative pattern..."
-    API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -i "api" | grep "${PROJECT_ID}" | head -1)
-    if [ -z "$API_CONTAINER" ]; then
-        echo "Still not found. Please check container names above."
-        exit 1
-    fi
+    echo "Current running containers:"
+    docker ps --format 'table {{.Names}}	{{.Status}}' | grep "${PROJECT_ID}"
+    exit 1
 fi
 
-echo "Found API container: $API_CONTAINER"
-echo ""
+if [ -z "$POSTGRES_CONTAINER" ]; then
+    echo "Error: Postgres container not found"
+    exit 1
+fi
 
-# Check working directory first
-WORKDIR=$(docker exec $API_CONTAINER pwd)
+# Check working directory
+WORKDIR=$(docker exec $API_CONTAINER pwd 2>/dev/null || echo "/service")
 echo "API container working directory: $WORKDIR"
 echo ""
 
-# First, run database migrations
+# Check if workspace already exists
+echo "Checking existing workspaces..."
+WORKSPACE_COUNT=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COUNT(*) FROM workspace;" 2>/dev/null || echo "0")
+WORKSPACE_COUNT=$(echo $WORKSPACE_COUNT | tr -d ' ')
+
+if [ "$WORKSPACE_COUNT" != "0" ] && [ "$WORKSPACE_COUNT" != "" ]; then
+    echo "Found $WORKSPACE_COUNT workspace(s). Showing existing workspaces:"
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM workspace;"
+    echo ""
+    echo "Workspace already exists. Bootstrap may not be needed."
+    echo "Do you want to continue anyway? (y/n)"
+    read -r response
+    if [ "$response" != "y" ]; then
+        echo "Exiting without changes."
+        exit 0
+    fi
+else
+    echo "No workspaces found. Bootstrap is needed."
+fi
+
+echo ""
 echo "Step 1: Running database migrations..."
 docker exec $API_CONTAINER node -e '
 const { drizzleMigrate } = require("./node_modules/backend-lib/dist/migrate");
@@ -96,30 +129,37 @@ echo ""
 echo "Step 3: Verifying bootstrap..."
 
 # Check if tables and workspace were created
-POSTGRES_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "postgres.*${PROJECT_ID}" | head -1)
-
-if [ ! -z "$POSTGRES_CONTAINER" ]; then
-    echo "Checking database tables..."
-    TABLE_COUNT=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ')
-    echo "Found $TABLE_COUNT tables in database"
-    
-    echo ""
-    echo "Checking workspaces..."
-    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM workspace;" 2>/dev/null || echo "Failed to query workspaces"
-fi
+echo "Checking database tables..."
+TABLE_COUNT=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ')
+echo "Found $TABLE_COUNT tables in database"
 
 echo ""
-echo "Step 4: Restarting dashboard to pick up changes..."
-DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "dashboard.*${PROJECT_ID}" | head -1)
+echo "Checking workspaces..."
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, domain FROM workspace;" 2>/dev/null || echo "Failed to query workspaces"
+
+echo ""
+echo "Step 4: Restarting services to pick up changes..."
 if [ ! -z "$DASHBOARD_CONTAINER" ]; then
     docker restart $DASHBOARD_CONTAINER
     echo "✓ Dashboard restarted"
+else
+    echo "⚠ Dashboard container not found, skipping restart"
+fi
+
+if [ ! -z "$API_CONTAINER" ]; then
+    docker restart $API_CONTAINER
+    echo "✓ API restarted"
 fi
 
 echo ""
 echo "===================================================="
 echo "Bootstrap Complete!"
 echo "===================================================="
+echo ""
+echo "Services status:"
+echo "  API: $(docker ps --format '{{.Status}}' --filter "name=$API_CONTAINER")"
+echo "  Dashboard: $(docker ps --format '{{.Status}}' --filter "name=$DASHBOARD_CONTAINER")"
+echo "  Worker: $(docker ps --format '{{.Status}}' --filter "name=$WORKER_CONTAINER")"
 echo ""
 echo "You should now be able to access:"
 echo "  Dashboard: https://communication-dashboard.caramelme.com"
