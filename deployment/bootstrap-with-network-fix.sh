@@ -301,6 +301,52 @@ echo "Cloudflare Tunnel Configuration:"
 echo "  communication-api.caramelme.com → http://${API_IP}:3001"
 echo "  communication-dashboard.caramelme.com → http://${DASHBOARD_IP}:3000"
 
+# Auto-update Cloudflare tunnel if container is running
+if [ ! -z "$CLOUDFLARED_CONTAINER" ] && [ ! -z "$API_IP" ] && [ ! -z "$DASHBOARD_IP" ]; then
+    echo ""
+    echo "Step 9: Auto-updating Cloudflare tunnel configuration..."
+    echo "====================================================="
+    
+    # Generate new config
+    cat > /tmp/cloudflared-config.yml << CFEOF
+tunnel: \$(docker exec $CLOUDFLARED_CONTAINER env | grep CF_TUNNEL_TOKEN | cut -d= -f2 | cut -c1-36 2>/dev/null || echo "auto")
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: communication-api.caramelme.com
+    service: http://${API_IP}:3001
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  - hostname: communication-dashboard.caramelme.com
+    service: http://${DASHBOARD_IP}:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  - service: http_status:404
+CFEOF
+    
+    # Copy config to container
+    docker cp /tmp/cloudflared-config.yml ${CLOUDFLARED_CONTAINER}:/etc/cloudflared/config.yml 2>/dev/null && {
+        echo "✅ Cloudflare config updated"
+        
+        # Restart cloudflared to apply changes
+        docker restart ${CLOUDFLARED_CONTAINER} > /dev/null 2>&1
+        echo "✅ Cloudflared restarted with new IPs"
+        
+        # Wait for tunnel to reconnect
+        sleep 5
+        echo "✅ Tunnel should be active with new configuration"
+    } || {
+        echo "⚠️  Could not auto-update Cloudflare config"
+        echo "   Please update manually in Cloudflare Zero Trust dashboard:"
+        echo "   API: http://${API_IP}:3001"
+        echo "   Dashboard: http://${DASHBOARD_IP}:3000"
+    }
+fi
+
 # Save configuration
 cat > /tmp/dittofeed-network-config.txt << EOF
 Dittofeed Network Configuration - $(date)
