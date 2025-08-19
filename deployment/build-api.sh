@@ -1,5 +1,6 @@
 #!/bin/bash
 # Build and push API service to Nexus
+# Now includes multi-tenant OAuth authentication support
 
 set -e
 
