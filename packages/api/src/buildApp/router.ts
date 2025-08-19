@@ -23,6 +23,7 @@ import secretsController from "../controllers/secretsController";
 import segmentsController from "../controllers/segmentsController";
 import settingsController from "../controllers/settingsController";
 import authController from "../controllers/singleTenantController";
+import multiTenantAuthController from "../controllers/multiTenantController";
 import subscriptionGroupsController from "../controllers/subscriptionGroupsController";
 import subscriptionManagementController from "../controllers/subscriptionManagementController";
 import userPropertiesController from "../controllers/userPropertiesController";
@@ -87,14 +88,19 @@ export default async function router(
   // endpoints without standard authorization
   await fastify.register(
     async (f: FastifyInstance) => {
+      const { authMode } = backendConfig();
+      
       await Promise.all([
         f.register(subscriptionManagementController, {
           prefix: "/subscription-management",
         }),
         f.register(publicAppsController, { prefix: "/apps" }),
         f.register(webhooksController, { prefix: "/webhooks" }),
-        backendConfig().authMode === "single-tenant"
+        authMode === "single-tenant"
           ? f.register(authController, { prefix: "/single-tenant" })
+          : null,
+        authMode === "multi-tenant"
+          ? f.register(multiTenantAuthController, { prefix: "/auth" })
           : null,
       ]);
     },
