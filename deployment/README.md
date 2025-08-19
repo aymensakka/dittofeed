@@ -4,6 +4,7 @@ This folder contains scripts for building and deploying Dittofeed Docker images 
 
 ## Quick Start
 
+### For Development/Building
 ```bash
 # Clone repository
 git clone https://github.com/aymensakka/dittofeed.git
@@ -19,10 +20,28 @@ sudo ./deployment/setup-build-environment.sh
 ./deployment/build-datacenter.sh
 ```
 
+### For Production Deployment (Coolify)
+```bash
+# After Coolify deploys the stack
+cd ~/dittofeed
+
+# Check status and bootstrap
+./deployment/bootstrap-simple.sh
+./deployment/manual-bootstrap.sh  # If workspace doesn't exist
+
+# Setup Cloudflare tunnel updates
+sudo crontab -e
+# Add: */5 * * * * /root/dittofeed/deployment/update-cf-from-host.sh
+
+# Access the application
+# https://communication-dashboard.caramelme.com
+```
+
 ## Script Quick Reference
 
 | Script | Purpose | When to Use |
 |--------|---------|-------------|
+| **Build & Deploy Scripts** | | |
 | `setup-build-environment.sh` | Install Docker, Node.js, Yarn | First time setup |
 | `build-and-push-images.sh` | Build all services sequentially | Standard builds |
 | `build-datacenter.sh` | Parallel high-speed build | 4+ vCPU servers |
@@ -30,12 +49,17 @@ sudo ./deployment/setup-build-environment.sh
 | `build-api.sh` | Build and push API only | Update API service |
 | `build-dashboard.sh` | Build and push Dashboard only | Update Dashboard |
 | `build-worker.sh` | Build and push Worker only | Update Worker |
+| **Bootstrap & Configuration** | | |
+| `bootstrap-simple.sh` | Quick status check | Check deployment status |
+| `manual-bootstrap.sh` | Interactive workspace creation | Create workspace manually |
+| `bootstrap-with-network-fix.sh` | Complete network setup | Fix network issues, IP changes |
+| **Cloudflare Tunnel Management** | | |
+| `update-cf-from-host.sh` | Update tunnel from host | After container IP changes |
+| `debug-cloudflared.sh` | Debug cloudflared container | Troubleshoot tunnel issues |
 | **Utility Scripts** | | |
 | `check-images.sh` | Check image status | Verify builds |
-| `push-single-image.sh` | Retry single image push | Push failures |
-| `push-slow-connection.sh` | Retry all image pushes | Multiple push failures |
-| **Workflow Scripts** | | |
-| `build-and-push-dev.sh` | Build using docker-compose | Dev server builds |
+| `check-duplicate-instances.sh` | Find duplicate containers | Debug container conflicts |
+| `check-coolify-status.sh` | Check Coolify deployment | Verify deployment status |
 
 ## Scripts Overview
 
@@ -203,6 +227,79 @@ git checkout v1.2.3
 - `docker.reactmotion.com/my-docker-repo/dittofeed/api:multitenancy-redis-v1`
 - `docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:multitenancy-redis-v1`
 - `docker.reactmotion.com/my-docker-repo/dittofeed/worker:multitenancy-redis-v1`
+
+## Multi-Tenant Deployment with Coolify
+
+### Prerequisites
+- Coolify instance with Docker Compose deployment
+- Cloudflare Zero Trust tunnel configured
+- PostgreSQL, Redis, ClickHouse, Temporal services
+
+### Bootstrap Process
+
+1. **Initial Bootstrap (after deployment):**
+   ```bash
+   # Check deployment status
+   ./deployment/bootstrap-simple.sh
+   
+   # If workspace doesn't exist, create it
+   ./deployment/manual-bootstrap.sh
+   ```
+
+2. **Fix Network Issues (after container restart):**
+   ```bash
+   # Fixes IP changes and updates internal networking
+   ./deployment/bootstrap-with-network-fix.sh
+   ```
+
+### Cloudflare Tunnel Updates
+
+Since Coolify recreates containers with new IPs on redeploy, the Cloudflare tunnel needs updating:
+
+1. **Automatic Updates (Host Cron):**
+   ```bash
+   # Add to root crontab
+   */5 * * * * /root/dittofeed/deployment/update-cf-from-host.sh
+   ```
+
+2. **Manual Update (after deployment):**
+   ```bash
+   cd ~/dittofeed
+   ./deployment/update-cf-from-host.sh
+   ```
+
+3. **Debug Tunnel Issues:**
+   ```bash
+   ./deployment/debug-cloudflared.sh
+   ./deployment/check-cloudflared-type.sh
+   ```
+
+### Environment Variables
+
+Key environment variables for multi-tenant mode:
+- `AUTH_MODE=multi-tenant`
+- `NEXT_PUBLIC_AUTH_MODE=multi-tenant`
+- `WORKSPACE_ISOLATION_ENABLED=true`
+- `BOOTSTRAP_WORKSPACE_NAME=caramel`
+- `DOMAIN=caramelme.com`
+
+### Common Multi-Tenant Issues
+
+1. **404 on Dashboard:**
+   - Workspace name mismatch (check `BOOTSTRAP_WORKSPACE_NAME`)
+   - Wrong auth mode (must be `multi-tenant`)
+   - Run `manual-bootstrap.sh` to create workspace
+
+2. **Bad Gateway After Redeploy:**
+   - Container IPs changed
+   - Run `update-cf-from-host.sh`
+   - Check tunnel status with `debug-cloudflared.sh`
+
+3. **Workspace Not Found:**
+   ```sql
+   -- Check workspace in database
+   docker exec $(docker ps -q -f name=postgres) psql -U dittofeed -d dittofeed -c "SELECT name, domain FROM \"Workspace\";"
+   ```
 
 ## Troubleshooting
 ### Build individual images
