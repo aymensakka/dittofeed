@@ -114,15 +114,27 @@ build_and_push() {
     # Full image name
     local image_name="$REGISTRY/$REPO/$service:$TAG"
     
-    # Build the image
-    # Note: --cpus and --memory are not available for docker build
-    # Resource limits are enforced at container runtime, not build time
-    docker build \
-        --platform "$PLATFORM" \
-        -f "$dockerfile_path" \
-        -t "$image_name" \
-        --build-arg NODE_ENV=production \
-        "$context_path"
+    # Build the image with appropriate args
+    if [ "$service" = "dashboard" ]; then
+        # Dashboard needs special build args for multi-tenant mode
+        docker build \
+            --platform "$PLATFORM" \
+            -f "$dockerfile_path" \
+            -t "$image_name" \
+            --build-arg NODE_ENV=production \
+            --build-arg NEXT_PUBLIC_API_BASE_URL=https://communication-api.caramelme.com \
+            --build-arg NEXT_PUBLIC_API_URL=https://communication-api.caramelme.com \
+            --build-arg NEXT_PUBLIC_AUTH_MODE=multi-tenant \
+            "$context_path"
+    else
+        # Standard build for other services
+        docker build \
+            --platform "$PLATFORM" \
+            -f "$dockerfile_path" \
+            -t "$image_name" \
+            --build-arg NODE_ENV=production \
+            "$context_path"
+    fi
     
     if [ $? -ne 0 ]; then
         log_error "Failed to build $service image"
@@ -150,28 +162,7 @@ log_info "Building API service (with OAuth support)..."
 build_and_push "api" "packages/api/Dockerfile" "."
 
 log_info "Building Dashboard service (multi-tenant mode)..."
-# Dashboard needs special build args for multi-tenant mode
-docker build \
-    --platform "$PLATFORM" \
-    -f "packages/dashboard/Dockerfile" \
-    -t "$REGISTRY/$REPO/dashboard:$TAG" \
-    --build-arg NODE_ENV=production \
-    --build-arg NEXT_PUBLIC_API_BASE_URL=https://communication-api.caramelme.com \
-    --build-arg NEXT_PUBLIC_API_URL=https://communication-api.caramelme.com \
-    --build-arg NEXT_PUBLIC_AUTH_MODE=multi-tenant \
-    .
-
-if [ $? -eq 0 ]; then
-    log_info "Dashboard build successful"
-    docker push "$REGISTRY/$REPO/dashboard:$TAG"
-    if [ $? -ne 0 ]; then
-        log_error "Failed to push dashboard image"
-        exit 1
-    fi
-else
-    log_error "Dashboard build failed"
-    exit 1
-fi
+build_and_push "dashboard" "packages/dashboard/Dockerfile" "."
 
 log_info "Building Worker service..."
 build_and_push "worker" "packages/worker/Dockerfile" "."
