@@ -2,11 +2,21 @@
 
 echo "Applying immediate fix to dashboard..."
 
-# Get dashboard container
-DASHBOARD=$(docker ps --format '{{.Names}}' | grep -i dashboard | grep p0gcsc088cogco0cokco4404 | head -1)
+# Show all containers first
+echo "Looking for dashboard container..."
+docker ps --format 'table {{.Names}}\t{{.Status}}' | grep -i dashboard
+
+# Get dashboard container - try multiple patterns
+DASHBOARD=$(docker ps --format '{{.Names}}' | grep -i dashboard | head -1)
 
 if [ -z "$DASHBOARD" ]; then
-    echo "Dashboard container not found"
+    # Try another pattern
+    DASHBOARD=$(docker ps --format '{{.Names}}' | grep -E ".*dashboard.*" | head -1)
+fi
+
+if [ -z "$DASHBOARD" ]; then
+    echo "Dashboard container not found. Available containers:"
+    docker ps --format 'table {{.Names}}\t{{.Image}}'
     exit 1
 fi
 
