@@ -285,10 +285,21 @@ Key environment variables for multi-tenant mode:
 
 ### Common Multi-Tenant Issues
 
-1. **404 on Dashboard:**
-   - Workspace name mismatch (check `BOOTSTRAP_WORKSPACE_NAME`)
-   - Wrong auth mode (must be `multi-tenant`)
-   - Run `manual-bootstrap.sh` to create workspace
+1. **404 on Dashboard (All Routes):**
+   - **Root Cause**: Conflicting redirect in next.config.js (two redirects for '/')
+   - **Quick Fix**: Run `./deployment/quick-fix-remote-404.sh` on server
+   - **Permanent Fix**: 
+     ```bash
+     # Apply the fix locally
+     ./deployment/apply-dashboard-fix.sh
+     # Rebuild dashboard image
+     ./deployment/build-dashboard.sh
+     # Redeploy in Coolify
+     ```
+   - **Other causes**:
+     - Workspace name mismatch (check `BOOTSTRAP_WORKSPACE_NAME`)
+     - Wrong auth mode (must be `multi-tenant`)
+     - Run `manual-bootstrap.sh` to create workspace
 
 2. **Bad Gateway After Redeploy:**
    - Container IPs changed
@@ -300,6 +311,12 @@ Key environment variables for multi-tenant mode:
    -- Check workspace in database
    docker exec $(docker ps -q -f name=postgres) psql -U dittofeed -d dittofeed -c "SELECT name, domain FROM \"Workspace\";"
    ```
+
+4. **Dashboard Returns 404 for All Routes:**
+   - **Diagnosis**: Run `./deployment/diagnose-404.sh`
+   - **Environment Check**: Verify `NEXT_PUBLIC_AUTH_MODE=multi-tenant`
+   - **Next.js Config**: Check for conflicting redirects in next.config.js
+   - **Solution**: Apply fix with `quick-fix-remote-404.sh` or rebuild image
 
 ## Troubleshooting
 ### Build individual images
