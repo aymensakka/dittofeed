@@ -25,16 +25,27 @@ sudo ./deployment/setup-build-environment.sh
 # After Coolify deploys the stack
 cd ~/dittofeed
 
-# Check status and bootstrap
-./deployment/bootstrap-simple.sh
-./deployment/manual-bootstrap.sh  # If workspace doesn't exist
+# Run the complete fix script (recommended)
+./deployment/fix-all.sh
+
+# OR run individual scripts:
+./deployment/bootstrap-simple.sh          # Check status
+./deployment/fix-database-schema.sh       # Fix schema issues
+./deployment/manual-bootstrap.sh          # Create workspace if needed
+./deployment/bootstrap-with-network-fix.sh # Fix network/IPs
 
 # Setup Cloudflare tunnel updates
 sudo crontab -e
 # Add: */5 * * * * /root/dittofeed/deployment/update-cf-from-host.sh
 
+# Important: Update these in Coolify environment variables:
+# NEXTAUTH_URL=https://communication-dashboard.caramelme.com/dashboard
+# CLICKHOUSE_HOST=clickhouse
+# CLICKHOUSE_USER=dittofeed
+# CLICKHOUSE_PASSWORD=password
+
 # Access the application
-# https://communication-dashboard.caramelme.com
+# https://communication-dashboard.caramelme.com/dashboard
 ```
 
 ## Script Quick Reference
@@ -50,9 +61,11 @@ sudo crontab -e
 | `build-dashboard.sh` | Build and push Dashboard only | Update Dashboard |
 | `build-worker.sh` | Build and push Worker only | Update Worker |
 | **Bootstrap & Configuration** | | |
+| `fix-all.sh` | Complete orchestration script | Run all fixes in sequence |
 | `bootstrap-simple.sh` | Quick status check | Check deployment status |
 | `manual-bootstrap.sh` | Interactive workspace creation | Create workspace manually |
 | `bootstrap-with-network-fix.sh` | Complete network setup | Fix network issues, IP changes |
+| `fix-database-schema.sh` | Fix database schema | Add missing columns for multi-tenant |
 | **Cloudflare Tunnel Management** | | |
 | `update-cf-from-host.sh` | Update tunnel from host | After container IP changes |
 | `debug-cloudflared.sh` | Debug cloudflared container | Troubleshoot tunnel issues |
@@ -412,6 +425,51 @@ docker build --platform linux/amd64 -f packages/dashboard/Dockerfile -t docker.r
    - Logs out of Docker registry
    - Reports completion status
 
+## Common Issues and Solutions
+
+### Dashboard Returns 404 or 500 Error
+**Cause:** Missing database columns or incorrect environment variables
+**Solution:**
+```bash
+# Run the database schema fix
+./deployment/fix-database-schema.sh
+
+# Ensure these environment variables are set in Coolify:
+NEXTAUTH_URL=https://communication-dashboard.caramelme.com/dashboard
+CLICKHOUSE_HOST=clickhouse
+CLICKHOUSE_USER=dittofeed
+CLICKHOUSE_PASSWORD=password
+NODE_ENV=production
+
+# Restart dashboard container
+docker restart $(docker ps -q -f name=dashboard)
+```
+
+### API Returns 502 Bad Gateway
+**Cause:** API container not responding or IP changed
+**Solution:**
+```bash
+# Run network fix
+./deployment/bootstrap-with-network-fix.sh
+
+# Update Cloudflare tunnel
+./deployment/update-cf-from-host.sh
+```
+
+### Anonymous Mode Instead of Authentication
+**Cause:** AUTH_MODE not properly configured
+**Solution:**
+```bash
+# Check current auth mode
+docker exec $(docker ps -q -f name=dashboard) env | grep AUTH_MODE
+
+# In Coolify, ensure:
+NEXT_PUBLIC_AUTH_MODE=multi-tenant
+AUTH_MODE=multi-tenant
+
+# Redeploy dashboard service from Coolify
+```
+
 ## Notes
 
 - Build time: ~15-30 minutes on 2 vCPU server
@@ -419,3 +477,4 @@ docker build --platform linux/amd64 -f packages/dashboard/Dockerfile -t docker.r
 - All images built for linux/amd64 platform
 - Registry: docker.reactmotion.com
 - Repository: my-docker-repo/dittofeed
+- Dashboard base path: /dashboard (required for routing)

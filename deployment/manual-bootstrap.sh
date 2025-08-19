@@ -199,6 +199,22 @@ echo "Getting container IPs..."
 API_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
 DASHBOARD_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $DASHBOARD_CONTAINER 2>/dev/null | head -c -1 | tr -d '\n')
 
+# Fix database schema for multi-tenant support
+echo ""
+echo "Fixing database schema for multi-tenant support..."
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+    "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS domain TEXT;" 2>/dev/null || true
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+    "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS \"externalId\" TEXT;" 2>/dev/null || true
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+    "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS \"parentWorkspaceId\" UUID REFERENCES \"Workspace\"(id);" 2>/dev/null || true
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+    "ALTER TABLE \"WorkspaceMemberRole\" ADD COLUMN IF NOT EXISTS \"resourceType\" TEXT;" 2>/dev/null || true
+DOMAIN="${DOMAIN:-caramelme.com}"
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+    "UPDATE \"Workspace\" SET domain = '$DOMAIN' WHERE domain IS NULL;" 2>/dev/null || true
+echo "✅ Database schema updated"
+
 # Restart services
 echo ""
 echo "Restarting services..."

@@ -233,6 +233,27 @@ else
     docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, status FROM \"Workspace\";" 2>/dev/null
 fi
 
+# Step 5.5: Fix database schema for multi-tenant support
+echo ""
+echo "Step 5.5: Fixing database schema for multi-tenant support..."
+if [ ! -z "$POSTGRES_CONTAINER" ]; then
+    # Add missing columns
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+        "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS domain TEXT;" 2>/dev/null || true
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+        "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS \"externalId\" TEXT;" 2>/dev/null || true
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+        "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS \"parentWorkspaceId\" UUID REFERENCES \"Workspace\"(id);" 2>/dev/null || true
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+        "ALTER TABLE \"WorkspaceMemberRole\" ADD COLUMN IF NOT EXISTS \"resourceType\" TEXT;" 2>/dev/null || true
+    
+    # Update domain if not set
+    DOMAIN="${DOMAIN:-caramelme.com}"
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+        "UPDATE \"Workspace\" SET domain = '$DOMAIN' WHERE domain IS NULL;" 2>/dev/null || true
+    echo "✅ Database schema updated"
+fi
+
 # Step 6: Save IPs before restart
 echo ""
 echo "Step 6: Restarting services..."

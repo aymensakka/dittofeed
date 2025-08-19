@@ -54,15 +54,41 @@ else
     echo -e "${GREEN}✓${NC} Workspace already exists"
 fi
 
-# Step 3: Fix network and IPs
+# Step 3: Fix database schema
 echo ""
-echo "Step 3: Fixing network configuration and IPs..."
+echo "Step 3: Fixing database schema..."
+echo "----------------------------------------"
+if [ -f "$SCRIPT_DIR/fix-database-schema.sh" ]; then
+    "$SCRIPT_DIR/fix-database-schema.sh"
+else
+    # Inline schema fix if script doesn't exist
+    POSTGRES=$(docker ps --format '{{.Names}}' | grep postgres | head -1)
+    if [ ! -z "$POSTGRES" ]; then
+        docker exec $POSTGRES psql -U dittofeed -d dittofeed -c \
+            "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS domain TEXT;" 2>/dev/null || true
+        docker exec $POSTGRES psql -U dittofeed -d dittofeed -c \
+            "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS \"externalId\" TEXT;" 2>/dev/null || true
+        docker exec $POSTGRES psql -U dittofeed -d dittofeed -c \
+            "ALTER TABLE \"Workspace\" ADD COLUMN IF NOT EXISTS \"parentWorkspaceId\" UUID;" 2>/dev/null || true
+        docker exec $POSTGRES psql -U dittofeed -d dittofeed -c \
+            "ALTER TABLE \"WorkspaceMemberRole\" ADD COLUMN IF NOT EXISTS \"resourceType\" TEXT;" 2>/dev/null || true
+        DOMAIN="${DOMAIN:-caramelme.com}"
+        docker exec $POSTGRES psql -U dittofeed -d dittofeed -c \
+            "UPDATE \"Workspace\" SET domain = '$DOMAIN' WHERE domain IS NULL;" 2>/dev/null || true
+        echo -e "${GREEN}✓${NC} Database schema updated"
+    fi
+fi
+echo ""
+
+# Step 4: Fix network and IPs
+echo ""
+echo "Step 4: Fixing network configuration and IPs..."
 echo "----------------------------------------"
 "$SCRIPT_DIR/bootstrap-with-network-fix.sh"
 echo ""
 
-# Step 4: Fix Dashboard routing (basePath issue)
-echo "Step 4: Fixing Dashboard routing..."
+# Step 5: Fix Dashboard routing (basePath issue)
+echo "Step 5: Fixing Dashboard routing..."
 echo "----------------------------------------"
 DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep dashboard | head -1)
 if [ ! -z "$DASHBOARD_CONTAINER" ]; then
@@ -84,25 +110,25 @@ else
 fi
 echo ""
 
-# Step 5: Update Cloudflare if script exists
+# Step 6: Update Cloudflare if script exists
 if [ -f "$SCRIPT_DIR/update-cf-from-host.sh" ]; then
-    echo "Step 5: Updating Cloudflare tunnel..."
+    echo "Step 6: Updating Cloudflare tunnel..."
     echo "----------------------------------------"
     "$SCRIPT_DIR/update-cf-from-host.sh"
     echo ""
 else
-    echo "Step 5: Cloudflare update script not found, skipping..."
+    echo "Step 6: Cloudflare update script not found, skipping..."
 fi
 
-# Step 6: Final status check
+# Step 7: Final status check
 echo ""
-echo "Step 6: Final status check..."
+echo "Step 7: Final status check..."
 echo "----------------------------------------"
 "$SCRIPT_DIR/bootstrap-simple.sh" --verbose
 echo ""
 
-# Step 7: Test external endpoints
-echo "Step 7: Testing external endpoints..."
+# Step 8: Test external endpoints
+echo "Step 8: Testing external endpoints..."
 echo "----------------------------------------"
 
 DOMAIN="${DOMAIN:-caramelme.com}"
@@ -131,9 +157,10 @@ echo ""
 echo "All existing scripts have been run:"
 echo "  1. bootstrap-simple.sh - Status check"
 echo "  2. manual-bootstrap.sh - Workspace creation (if needed)"
-echo "  3. bootstrap-with-network-fix.sh - Network and IP fixes"
-echo "  4. Dashboard routing check (basePath /dashboard)"
-echo "  5. update-cf-from-host.sh - Cloudflare tunnel update"
+echo "  3. Database schema fix for multi-tenant support"
+echo "  4. bootstrap-with-network-fix.sh - Network and IP fixes"
+echo "  5. Dashboard routing check (basePath /dashboard)"
+echo "  6. update-cf-from-host.sh - Cloudflare tunnel update"
 echo ""
 echo "Access your application at:"
 echo "  https://communication-dashboard.${DOMAIN}/dashboard"
