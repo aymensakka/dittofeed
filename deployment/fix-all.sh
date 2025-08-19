@@ -61,31 +61,54 @@ echo "----------------------------------------"
 "$SCRIPT_DIR/bootstrap-with-network-fix.sh"
 echo ""
 
-# Step 4: Update Cloudflare if script exists
+# Step 4: Fix Dashboard routing (basePath issue)
+echo "Step 4: Fixing Dashboard routing..."
+echo "----------------------------------------"
+DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep dashboard | head -1)
+if [ ! -z "$DASHBOARD_CONTAINER" ]; then
+    # Check if NEXTAUTH_URL includes /dashboard
+    NEXTAUTH_URL=$(docker exec $DASHBOARD_CONTAINER env | grep "^NEXTAUTH_URL=" | cut -d= -f2)
+    if [[ ! "$NEXTAUTH_URL" == */dashboard ]]; then
+        echo -e "${YELLOW}⚠${NC} NEXTAUTH_URL needs /dashboard suffix"
+        echo "Current: $NEXTAUTH_URL"
+        echo "Should be: ${NEXTAUTH_URL}/dashboard"
+        echo ""
+        echo "ACTION REQUIRED:"
+        echo "1. Update in Coolify: NEXTAUTH_URL=${NEXTAUTH_URL}/dashboard"
+        echo "2. Redeploy the Dashboard service"
+    else
+        echo -e "${GREEN}✓${NC} NEXTAUTH_URL correctly configured"
+    fi
+else
+    echo -e "${RED}✗${NC} Dashboard container not found"
+fi
+echo ""
+
+# Step 5: Update Cloudflare if script exists
 if [ -f "$SCRIPT_DIR/update-cf-from-host.sh" ]; then
-    echo "Step 4: Updating Cloudflare tunnel..."
+    echo "Step 5: Updating Cloudflare tunnel..."
     echo "----------------------------------------"
     "$SCRIPT_DIR/update-cf-from-host.sh"
     echo ""
 else
-    echo "Step 4: Cloudflare update script not found, skipping..."
+    echo "Step 5: Cloudflare update script not found, skipping..."
 fi
 
-# Step 5: Final status check
+# Step 6: Final status check
 echo ""
-echo "Step 5: Final status check..."
+echo "Step 6: Final status check..."
 echo "----------------------------------------"
 "$SCRIPT_DIR/bootstrap-simple.sh" --verbose
 echo ""
 
-# Step 6: Test external endpoints
-echo "Step 6: Testing external endpoints..."
+# Step 7: Test external endpoints
+echo "Step 7: Testing external endpoints..."
 echo "----------------------------------------"
 
 DOMAIN="${DOMAIN:-caramelme.com}"
 
-echo -n "Dashboard (https://communication-dashboard.${DOMAIN}): "
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://communication-dashboard.${DOMAIN}" 2>/dev/null || echo "000")
+echo -n "Dashboard (https://communication-dashboard.${DOMAIN}/dashboard): "
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://communication-dashboard.${DOMAIN}/dashboard" 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "307" ]; then
     echo -e "${GREEN}✓${NC} HTTP $HTTP_CODE"
 else
@@ -109,10 +132,11 @@ echo "All existing scripts have been run:"
 echo "  1. bootstrap-simple.sh - Status check"
 echo "  2. manual-bootstrap.sh - Workspace creation (if needed)"
 echo "  3. bootstrap-with-network-fix.sh - Network and IP fixes"
-echo "  4. update-cf-from-host.sh - Cloudflare tunnel update"
+echo "  4. Dashboard routing check (basePath /dashboard)"
+echo "  5. update-cf-from-host.sh - Cloudflare tunnel update"
 echo ""
 echo "Access your application at:"
-echo "  https://communication-dashboard.${DOMAIN}"
+echo "  https://communication-dashboard.${DOMAIN}/dashboard"
 echo ""
 echo "If you still see issues:"
 echo "  1. Check logs: docker logs \$(docker ps -q -f name=dashboard) --tail 50"
