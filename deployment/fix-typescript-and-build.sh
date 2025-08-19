@@ -1,3 +1,31 @@
+#!/bin/bash
+# Fix TypeScript issues and build on Linux server
+# This script fixes the multiTenantController TypeScript issues before building
+
+set -e
+
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_info "Fixing TypeScript issues in multiTenantController.ts..."
+
+# Fix the multiTenantController.ts file
+cat > packages/api/src/controllers/multiTenantController.ts << 'EOF'
 import { Type, TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import backendConfig from "backend-lib/src/config";
 import { db } from "backend-lib/src/db";
@@ -432,3 +460,12 @@ export default async function multiTenantController(fastify: FastifyInstance) {
     }
   );
 }
+EOF
+
+log_info "TypeScript fixes applied successfully"
+
+# Now call the build script
+log_info "Starting build process..."
+./deployment/build-and-push-images.sh
+
+log_info "Build complete!"
