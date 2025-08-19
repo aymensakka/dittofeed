@@ -1,139 +1,67 @@
 #!/bin/bash
+# Check Coolify deployment status
 
-# ==============================================================================
-# Check Coolify Deployment Status
-# ==============================================================================
+echo "=== Coolify Deployment Status Check ==="
+echo "Time: $(date)"
+echo ""
 
-set -e
+# Check running containers
+echo "1. Running containers for Dittofeed:"
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | grep -E "api|dashboard|worker|postgres|redis|clickhouse|temporal" || echo "   No Dittofeed containers running"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+echo ""
+echo "2. Recent container events:"
+docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | head -10
 
-echo -e "${BLUE}===================================================${NC}"
-echo -e "${BLUE}Checking Coolify Deployment Status${NC}"
-echo -e "${BLUE}===================================================${NC}"
-
-# Load environment variables
-if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
-    echo -e "${GREEN}✓ Loaded environment variables${NC}"
+echo ""
+echo "3. Checking API container logs:"
+API_CONTAINER=$(docker ps -q -f "name=api")
+if [ -n "$API_CONTAINER" ]; then
+    echo "   API container ID: $API_CONTAINER"
+    docker logs --tail 20 $API_CONTAINER 2>&1
 else
-    echo -e "${RED}✗ .env file not found${NC}"
-    exit 1
+    echo "   API container not running"
+    # Check if it exists but stopped
+    API_STOPPED=$(docker ps -aq -f "name=api" | head -1)
+    if [ -n "$API_STOPPED" ]; then
+        echo "   Found stopped API container, last logs:"
+        docker logs --tail 20 $API_STOPPED 2>&1
+    fi
 fi
 
-# Validate required variables
-if [ -z "$SERVER_IP" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_KEY_PATH" ]; then
-    echo -e "${RED}✗ Missing server configuration in .env${NC}"
-    echo "Please set: SERVER_IP, SSH_USER, SSH_KEY_PATH"
-    exit 1
-fi
-
-# Expand the tilde in SSH_KEY_PATH
-SSH_KEY_PATH="${SSH_KEY_PATH/#\~/$HOME}"
-
-# Check if SSH key exists
-if [ ! -f "$SSH_KEY_PATH" ]; then
-    echo -e "${RED}✗ SSH key not found at: $SSH_KEY_PATH${NC}"
-    exit 1
-fi
-
-# Function to run SSH commands
-run_ssh() {
-    ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$SSH_USER@$SERVER_IP" "$1"
-}
-
-# Check container status
-echo -e "\n${YELLOW}Container Status:${NC}"
-run_ssh "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E '($COOLIFY_PROJECT_ID|NAME)' || echo 'No containers found'"
-
-# Check specific services
-echo -e "\n${YELLOW}Service Health Checks:${NC}"
-
-# PostgreSQL
-echo -n "PostgreSQL: "
-if run_ssh "docker exec \$(docker ps -q -f name=postgres | grep -m1 .) psql -U dittofeed -d postgres -c 'SELECT 1' > /dev/null 2>&1"; then
-    echo -e "${GREEN}✓ Running${NC}"
+echo ""
+echo "4. Checking Dashboard container logs:"
+DASHBOARD_CONTAINER=$(docker ps -q -f "name=dashboard")
+if [ -n "$DASHBOARD_CONTAINER" ]; then
+    echo "   Dashboard container ID: $DASHBOARD_CONTAINER"
+    docker logs --tail 20 $DASHBOARD_CONTAINER 2>&1
 else
-    echo -e "${RED}✗ Not ready${NC}"
+    echo "   Dashboard container not running"
+    # Check if it exists but stopped
+    DASH_STOPPED=$(docker ps -aq -f "name=dashboard" | head -1)
+    if [ -n "$DASH_STOPPED" ]; then
+        echo "   Found stopped Dashboard container, last logs:"
+        docker logs --tail 20 $DASH_STOPPED 2>&1
+    fi
 fi
 
-# Redis
-echo -n "Redis: "
-if run_ssh "docker exec \$(docker ps -q -f name=redis | grep -m1 .) redis-cli ping 2>/dev/null | grep -q PONG"; then
-    echo -e "${GREEN}✓ Running${NC}"
-else
-    echo -e "${RED}✗ Not ready${NC}"
-fi
+echo ""
+echo "5. Checking network connectivity:"
+# Check if containers can reach each other
+echo "   Testing postgres connection:"
+docker exec $(docker ps -q -f "name=api" | head -1) nc -zv postgres 5432 2>&1 || echo "   Cannot test postgres connectivity"
 
-# ClickHouse
-echo -n "ClickHouse: "
-if run_ssh "docker exec \$(docker ps -q -f name=clickhouse | grep -m1 .) clickhouse-client --query 'SELECT 1' > /dev/null 2>&1"; then
-    echo -e "${GREEN}✓ Running${NC}"
-else
-    echo -e "${RED}✗ Not ready${NC}"
-fi
+echo ""
+echo "6. Checking environment variables in API:"
+docker exec $(docker ps -q -f "name=api" | head -1) printenv | grep -E "AUTH_MODE|DATABASE_URL|GOOGLE" || echo "   Cannot check env vars"
 
-# Temporal
-echo -n "Temporal: "
-TEMPORAL_STATUS=$(run_ssh "docker ps -a --format '{{.Names}}\t{{.Status}}' | grep temporal | grep $COOLIFY_PROJECT_ID | awk '{print \$2}' | head -1" || echo "Not found")
-if [[ "$TEMPORAL_STATUS" == *"Up"* ]]; then
-    echo -e "${GREEN}✓ Running${NC}"
-else
-    echo -e "${RED}✗ Status: $TEMPORAL_STATUS${NC}"
-fi
-
-# API
-echo -n "API: "
-if run_ssh "curl -s http://localhost:3001/health > /dev/null 2>&1"; then
-    echo -e "${GREEN}✓ Running${NC}"
-else
-    echo -e "${RED}✗ Not ready${NC}"
-fi
-
-# Dashboard
-echo -n "Dashboard: "
-if run_ssh "curl -s http://localhost:3000 > /dev/null 2>&1"; then
-    echo -e "${GREEN}✓ Running${NC}"
-else
-    echo -e "${RED}✗ Not ready${NC}"
-fi
-
-# Check recent logs for errors
-echo -e "\n${YELLOW}Recent Error Logs:${NC}"
-echo "Temporal logs:"
-run_ssh "docker logs \$(docker ps -aq -f name=temporal | head -1) 2>&1 | tail -5 | grep -i error || echo 'No recent errors'"
-
-echo "API logs:"
-run_ssh "docker logs \$(docker ps -aq -f name=api | head -1) 2>&1 | tail -5 | grep -i error || echo 'No recent errors'"
-
-# Check Cloudflare tunnel status
-echo -e "\n${YELLOW}Cloudflare Tunnel Status:${NC}"
-TUNNEL_STATUS=$(run_ssh "docker ps --format '{{.Names}}\t{{.Status}}' | grep cloudflared || echo 'Cloudflare tunnel not found'")
-echo "$TUNNEL_STATUS"
-
-# Test external URLs
-echo -e "\n${YELLOW}External URL Tests:${NC}"
-echo -n "Dashboard (https://communication-dashboard.caramelme.com): "
-if curl -s -o /dev/null -w "%{http_code}" https://communication-dashboard.caramelme.com | grep -q "200\|302"; then
-    echo -e "${GREEN}✓ Accessible${NC}"
-else
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://communication-dashboard.caramelme.com)
-    echo -e "${RED}✗ HTTP $HTTP_CODE${NC}"
-fi
-
-echo -n "API (https://communication-api.caramelme.com): "
-if curl -s -o /dev/null -w "%{http_code}" https://communication-api.caramelme.com/health | grep -q "200"; then
-    echo -e "${GREEN}✓ Accessible${NC}"
-else
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://communication-api.caramelme.com/health)
-    echo -e "${RED}✗ HTTP $HTTP_CODE${NC}"
-fi
-
-echo -e "\n${GREEN}===================================================${NC}"
-echo -e "${GREEN}Status check complete!${NC}"
-echo -e "${GREEN}===================================================${NC}"
+echo ""
+echo "=== Quick Actions ==="
+echo "To restart all containers via Coolify:"
+echo "  Go to Coolify dashboard and click 'Redeploy'"
+echo ""
+echo "To check specific container:"
+echo "  docker logs -f <container_name>"
+echo ""
+echo "To restart a specific container:"
+echo "  docker restart <container_name>"
