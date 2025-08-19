@@ -35,12 +35,6 @@ const nextConfig = {
         destination: "/journeys",
         permanent: false,
       },
-      {
-        source: "/",
-        destination: "/dashboard",
-        basePath: false,
-        permanent: false,
-      },
     ];
   },
   experimental: {
