@@ -45,8 +45,8 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/worker/package.json ./packages/worker/
 COPY packages/admin-cli/package.json ./packages/admin-cli/
 
-# Install dependencies
-RUN yarn install --immutable
+# Install dependencies (without immutable to allow lockfile updates)
+RUN yarn install
 
 FROM node:18-alpine AS builder
 WORKDIR /app
