@@ -43,7 +43,16 @@ echo "  NEXT_PUBLIC_AUTH_MODE=multi-tenant"
 echo "  CLICKHOUSE_HOST=clickhouse"
 echo ""
 
-echo "Step 2: Building dashboard locally with yarn..."
+echo "Step 2: Installing dependencies and building emailo..."
+echo "-------------------------------------------------------"
+# First install all dependencies
+yarn install
+
+# Build emailo package first (dashboard depends on it)
+echo "Building emailo package..."
+yarn workspace emailo build
+
+echo "Step 3: Building dashboard locally with yarn..."
 echo "------------------------------------------------"
 cd packages/dashboard
 
@@ -73,7 +82,7 @@ cd ../..
 echo "✅ Dashboard built successfully"
 echo ""
 
-echo "Step 3: Building Docker image..."
+echo "Step 4: Building Docker image..."
 echo "---------------------------------"
 # Use the standard Dockerfile since we've already built it
 docker build \
@@ -90,7 +99,7 @@ docker build \
 echo "✅ Docker image built: $IMAGE"
 echo ""
 
-echo "Step 4: Logging into Docker registry..."
+echo "Step 5: Logging into Docker registry..."
 echo "----------------------------------------"
 docker login "$REGISTRY" --username coolify-system --password '9sFPGGDJUFnE4z*z4Aj9' || {
     echo "❌ Failed to login to registry"
@@ -99,7 +108,7 @@ docker login "$REGISTRY" --username coolify-system --password '9sFPGGDJUFnE4z*z4
 echo "✅ Logged into Docker registry"
 echo ""
 
-echo "Step 5: Pushing image to registry..."
+echo "Step 6: Pushing image to registry..."
 echo "-------------------------------------"
 docker push "$IMAGE" || {
     echo "❌ Failed to push image"
