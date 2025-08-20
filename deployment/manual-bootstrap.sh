@@ -3,6 +3,8 @@
 # ==============================================================================
 # Manual Bootstrap Script - Create workspace and initialize database
 # Use this for: Initial setup, creating workspaces, fixing missing workspaces
+# Options:
+#   --build-dashboard : Also build and push dashboard Docker image with AUTH_MODE=multi-tenant
 # ==============================================================================
 
 set -e
@@ -12,6 +14,12 @@ echo "Manual Bootstrap for Dittofeed Multi-Tenant"
 echo "===================================================="
 
 PROJECT_ID="p0gcsc088cogco0cokco4404"
+
+# Docker Registry Configuration
+REGISTRY="docker.reactmotion.com"
+REPO="my-docker-repo/dittofeed"
+TAG="multitenancy-oauth-v3"
+DASHBOARD_IMAGE="${REGISTRY}/${REPO}/dashboard:${TAG}"
 
 # Function to find containers dynamically
 find_containers() {
@@ -46,27 +54,28 @@ WORKSPACE_COUNT=$(echo $WORKSPACE_COUNT | tr -d ' ')
 if [ "$WORKSPACE_COUNT" != "0" ]; then
     echo "Found $WORKSPACE_COUNT workspace(s):"
     docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c "SELECT id, name, type, status FROM \"Workspace\";" 2>/dev/null
+    
+    # Get existing workspace details for OAuth setup
+    WORKSPACE_NAME=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT name FROM \"Workspace\" LIMIT 1;" | tr -d ' ')
+    WORKSPACE_DOMAIN=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT COALESCE(domain, 'caramelme.com') FROM \"Workspace\" LIMIT 1;" | tr -d ' ')
     echo ""
-    echo "Do you want to create another workspace? (y/n)"
-    read -r response
-    if [ "$response" != "y" ]; then
-        echo "Exiting without changes."
-        exit 0
-    fi
+    echo "Using existing workspace: $WORKSPACE_NAME (domain: $WORKSPACE_DOMAIN)"
+    SKIP_WORKSPACE_CREATION=true
+else
+    # Ask for workspace details
+    echo ""
+    echo "Enter workspace name (default: caramel):"
+    read -r WORKSPACE_NAME
+    WORKSPACE_NAME=${WORKSPACE_NAME:-caramel}
+    
+    echo "Enter workspace domain (default: caramelme.com):"
+    read -r WORKSPACE_DOMAIN
+    WORKSPACE_DOMAIN=${WORKSPACE_DOMAIN:-caramelme.com}
+    SKIP_WORKSPACE_CREATION=false
 fi
 
-# Ask for workspace details
-echo ""
-echo "Enter workspace name (default: caramel):"
-read -r WORKSPACE_NAME
-WORKSPACE_NAME=${WORKSPACE_NAME:-caramel}
-
-echo "Enter workspace domain (default: caramelme.com):"
-read -r WORKSPACE_DOMAIN
-WORKSPACE_DOMAIN=${WORKSPACE_DOMAIN:-caramelme.com}
-
-# Method 1: Try using API container bootstrap if available
-if [ ! -z "$API_CONTAINER" ]; then
+# Method 1: Try using API container bootstrap if available (only if workspace doesn't exist)
+if [ "$SKIP_WORKSPACE_CREATION" = "false" ] && [ ! -z "$API_CONTAINER" ]; then
     echo ""
     echo "Method 1: Attempting bootstrap via API container..."
     
@@ -129,13 +138,16 @@ if [ ! -z "$API_CONTAINER" ]; then
     else
         echo "⚠️  Bootstrap via API failed, trying direct database method..."
     fi
-else
+elif [ "$SKIP_WORKSPACE_CREATION" = "false" ]; then
     echo "⚠️  API container not found, using direct database method..."
     METHOD1_SUCCESS=false
+else
+    echo "Skipping workspace creation (already exists)"
+    METHOD1_SUCCESS=skip
 fi
 
-# Method 2: Direct database insertion if Method 1 failed
-if [ "$METHOD1_SUCCESS" = "false" ]; then
+# Method 2: Direct database insertion if Method 1 failed and workspace doesn't exist
+if [ "$METHOD1_SUCCESS" = "false" ] && [ "$SKIP_WORKSPACE_CREATION" = "false" ]; then
     echo ""
     echo "Method 2: Creating workspace directly in database..."
     
@@ -215,6 +227,122 @@ docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
     "UPDATE \"Workspace\" SET domain = '$DOMAIN' WHERE domain IS NULL;" 2>/dev/null || true
 echo "✅ Database schema updated"
 
+# Fix AuthProvider table and setup OAuth
+echo ""
+echo "Setting up OAuth provider..."
+# Fix AuthProvider table column if needed
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << EOF 2>/dev/null || true
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns 
+               WHERE table_name = 'AuthProvider' AND column_name = 'provider') THEN
+        ALTER TABLE "AuthProvider" RENAME COLUMN provider TO type;
+    END IF;
+END\$\$;
+EOF
+
+# Get workspace ID for OAuth setup
+WORKSPACE_ID=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c "SELECT id FROM \"Workspace\" WHERE name = '$WORKSPACE_NAME' LIMIT 1;" | tr -d ' ')
+
+# Clean up any existing OAuth providers and insert fresh one
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << EOF
+DELETE FROM "AuthProvider" WHERE "workspaceId" = '$WORKSPACE_ID';
+
+INSERT INTO "AuthProvider" (
+    "workspaceId", "type", "enabled", "config", "createdAt", "updatedAt"
+) VALUES (
+    '$WORKSPACE_ID', 
+    'google', 
+    true,
+    '{"provider": "google", "scope": ["openid", "email", "profile"]}',
+    NOW(), 
+    NOW()
+);
+EOF
+echo "✅ OAuth provider configured"
+
+# Build Dashboard Docker Image if requested
+if [ "$1" = "--build-dashboard" ]; then
+    echo ""
+    echo "Building dashboard Docker image with multi-tenant auth..."
+    echo "----------------------------------------------------------"
+    
+    # Check if we're in the right directory
+    if [ ! -f "package.json" ]; then
+        echo "⚠️  Warning: Not in dittofeed root directory. Trying to change directory..."
+        if [ -f "../package.json" ]; then
+            cd ..
+        else
+            echo "❌ Error: Cannot find package.json. Skipping dashboard build."
+        fi
+    fi
+    
+    if [ -f "package.json" ]; then
+        echo "Setting build environment variables..."
+        
+        # Set all required environment variables for the build
+        export NODE_ENV=production
+        export AUTH_MODE=multi-tenant
+        export NEXT_PUBLIC_AUTH_MODE=multi-tenant
+        export NEXT_PUBLIC_ENABLE_MULTITENANCY=true
+        
+        # Add required ClickHouse config to pass validation
+        export CLICKHOUSE_HOST=clickhouse
+        export CLICKHOUSE_USER=dittofeed
+        export CLICKHOUSE_PASSWORD=password
+        
+        echo "Building dashboard with yarn..."
+        cd packages/dashboard
+        
+        # Create .env.production with all required variables
+        cat > .env.production << EOF
+NODE_ENV=production
+AUTH_MODE=multi-tenant
+NEXT_PUBLIC_AUTH_MODE=multi-tenant
+NEXT_PUBLIC_ENABLE_MULTITENANCY=true
+CLICKHOUSE_HOST=clickhouse
+CLICKHOUSE_USER=dittofeed
+CLICKHOUSE_PASSWORD=password
+EOF
+        
+        # Build the dashboard
+        if yarn build; then
+            echo "✅ Dashboard built successfully"
+            
+            cd ../..
+            
+            echo "Building Docker image..."
+            docker build \
+                --platform linux/amd64 \
+                -f packages/dashboard/Dockerfile \
+                -t "$DASHBOARD_IMAGE" \
+                --build-arg AUTH_MODE=multi-tenant \
+                --build-arg NEXT_PUBLIC_AUTH_MODE=multi-tenant \
+                .
+            
+            if [ $? -eq 0 ]; then
+                echo "✅ Docker image built: $DASHBOARD_IMAGE"
+                
+                echo "Logging into Docker registry..."
+                docker login "$REGISTRY" --username coolify-system --password '9sFPGGDJUFnE4z*z4Aj9'
+                
+                echo "Pushing image to registry..."
+                docker push "$DASHBOARD_IMAGE"
+                echo "✅ Image pushed to registry"
+                
+                echo ""
+                echo "Dashboard image ready: $DASHBOARD_IMAGE"
+                echo "Update this in Coolify for the dashboard service."
+            else
+                echo "❌ Failed to build Docker image"
+            fi
+        else
+            echo "❌ Dashboard build failed"
+            cd ../..
+        fi
+    fi
+fi
+
 # Restart services
 echo ""
 echo "Restarting services..."
@@ -241,7 +369,17 @@ echo "===================================================="
 echo "Bootstrap Complete!"
 echo "===================================================="
 echo ""
-echo "Workspace '$WORKSPACE_NAME' has been created."
+if [ "$SKIP_WORKSPACE_CREATION" = "true" ]; then
+    echo "✅ Using existing workspace: $WORKSPACE_NAME"
+else
+    echo "✅ Workspace '$WORKSPACE_NAME' has been created"
+fi
+echo "✅ OAuth provider (Google) configured"
+
+if [ "$1" = "--build-dashboard" ] && [ -f "package.json" -o -f "../package.json" ]; then
+    echo "✅ Dashboard image built and pushed: $DASHBOARD_IMAGE"
+fi
+
 echo ""
 echo "Container IPs:"
 echo "  API: ${API_IP}:3001"
@@ -251,6 +389,21 @@ echo "Cloudflare Tunnel Configuration:"
 echo "  communication-api.caramelme.com → http://${API_IP}:3001"
 echo "  communication-dashboard.caramelme.com → http://${DASHBOARD_IP}:3000"
 echo ""
+echo "Environment Variables for Coolify:"
+echo "  AUTH_MODE=multi-tenant"
+echo "  NEXT_PUBLIC_AUTH_MODE=multi-tenant"
+echo "  GOOGLE_CLIENT_ID=<your-google-client-id>"
+echo "  GOOGLE_CLIENT_SECRET=<your-google-client-secret>"
+echo "  NEXTAUTH_URL=https://communication-dashboard.caramelme.com/dashboard"
+echo "  NEXTAUTH_SECRET=<your-nextauth-secret>"
+echo ""
+
+if [ "$1" != "--build-dashboard" ]; then
+    echo "Note: Dashboard image not rebuilt. To rebuild with multi-tenant auth:"
+    echo "  ./deployment/manual-bootstrap.sh --build-dashboard"
+    echo ""
+fi
+
 echo "Access URL: https://communication-dashboard.caramelme.com"
 echo ""
 
@@ -264,9 +417,14 @@ Domain: $WORKSPACE_DOMAIN
 API: http://${API_IP}:3001
 Dashboard: http://${DASHBOARD_IP}:3000
 
+Dashboard Image: $DASHBOARD_IMAGE
+
 Cloudflare Tunnel:
 - communication-api.caramelme.com → http://${API_IP}:3001
 - communication-dashboard.caramelme.com → http://${DASHBOARD_IP}:3000
+
+OAuth: Google provider configured
+Auth Mode: multi-tenant
 EOF
 
 echo "Configuration saved to: /tmp/dittofeed-config.txt"

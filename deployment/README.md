@@ -250,14 +250,51 @@ git checkout v1.2.3
 
 ### Bootstrap Process
 
-1. **Initial Bootstrap (after deployment):**
-   ```bash
-   # Check deployment status
-   ./deployment/bootstrap-simple.sh
+The bootstrap scripts handle database initialization, workspace creation, OAuth setup, and optionally building the dashboard image with multi-tenant authentication.
+
+#### Available Bootstrap Scripts
+
+1. **manual-bootstrap.sh** - Main bootstrap script that handles:
+   - Database initialization and schema updates
+   - Workspace creation with multi-tenant support
+   - OAuth provider setup (Google authentication)
+   - Optional dashboard Docker image build with `--build-dashboard` flag
    
-   # If workspace doesn't exist, create it
-   ./deployment/manual-bootstrap.sh
-   ```
+2. **build-dashboard-simple.sh** - Standalone script for just building and pushing the dashboard
+   - Builds dashboard with AUTH_MODE=multi-tenant baked in
+   - Includes all required environment variables
+   - Pushes to Docker registry
+   
+3. **bootstrap-simple.sh** - Quick status check script
+   - Shows container status
+   - Displays workspace information
+   - Checks database initialization
+
+#### Usage Examples
+
+**Complete bootstrap with dashboard build:**
+```bash
+# This will initialize database, create workspace, setup OAuth, AND build dashboard image
+./deployment/manual-bootstrap.sh --build-dashboard
+```
+
+**Bootstrap without rebuilding dashboard:**
+```bash
+# Just initialize database, create workspace, and setup OAuth
+./deployment/manual-bootstrap.sh
+```
+
+**Build and push dashboard only:**
+```bash
+# When you need to rebuild dashboard with updated AUTH_MODE
+./deployment/build-dashboard-simple.sh
+```
+
+**Check deployment status:**
+```bash
+# Quick health check of all services
+./deployment/bootstrap-simple.sh
+```
 
 2. **Fix Network Issues (after container restart):**
    ```bash
