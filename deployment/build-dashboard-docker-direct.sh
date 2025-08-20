@@ -85,12 +85,12 @@ RUN echo "NODE_ENV=production" > .env.production && \
     echo "CLICKHOUSE_USER=dittofeed" >> .env.production && \
     echo "CLICKHOUSE_PASSWORD=password" >> .env.production
 
-# Build with reduced memory usage and skip static generation
+# Build with reduced memory usage
 RUN NODE_OPTIONS="--max-old-space-size=2048" \
     NEXT_TELEMETRY_DISABLED=1 \
-    timeout 300 yarn build || true
+    yarn build
 
-# Even if build partially fails, continue if we have the necessary files
+# Check if build succeeded
 RUN test -d .next || exit 1
 
 FROM node:18-alpine AS runner
@@ -104,16 +104,26 @@ ENV NEXT_PUBLIC_ENABLE_MULTITENANCY=true
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy built application
-COPY --from=builder /app/packages/dashboard/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/packages/dashboard/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/packages/dashboard/.next/static ./.next/static
+# If standalone exists, use it; otherwise use regular Next.js server
+COPY --from=builder /app/packages/dashboard/public ./packages/dashboard/public
+COPY --from=builder --chown=nextjs:nodejs /app/packages/dashboard/.next ./packages/dashboard/.next
+
+# Try to copy standalone if it exists, otherwise copy package files for regular server
+COPY --from=builder --chown=nextjs:nodejs /app/packages/dashboard/.next/standalone ./packages/dashboard/ 2>/dev/null || true
+
+# Copy package.json files in case we need to run regular server
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/packages/dashboard/package.json ./packages/dashboard/
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/dashboard/node_modules ./packages/dashboard/node_modules
 
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
 
-CMD ["node", "server.js"]
+# Start the appropriate server
+WORKDIR /app/packages/dashboard
+CMD if [ -f "server.js" ]; then node server.js; else npx next start -p 3000; fi
 EOF
 
 echo "✅ Dockerfile created"
