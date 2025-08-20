@@ -104,26 +104,23 @@ ENV NEXT_PUBLIC_ENABLE_MULTITENANCY=true
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# If standalone exists, use it; otherwise use regular Next.js server
+# Copy all necessary files for running the dashboard
 COPY --from=builder /app/packages/dashboard/public ./packages/dashboard/public
 COPY --from=builder --chown=nextjs:nodejs /app/packages/dashboard/.next ./packages/dashboard/.next
 
-# Try to copy standalone if it exists, otherwise copy package files for regular server
-COPY --from=builder --chown=nextjs:nodejs /app/packages/dashboard/.next/standalone ./packages/dashboard/ 2>/dev/null || true
-
-# Copy package.json files in case we need to run regular server
+# Copy package.json files and node_modules for running the server
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/packages/dashboard/package.json ./packages/dashboard/
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/dashboard/node_modules ./packages/dashboard/node_modules
+COPY --from=builder /app/packages/dashboard/next.config.js ./packages/dashboard/
 
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
 
-# Start the appropriate server
+# Start the Next.js server
 WORKDIR /app/packages/dashboard
-CMD if [ -f "server.js" ]; then node server.js; else npx next start -p 3000; fi
+CMD ["npx", "next", "start", "-p", "3000"]
 EOF
 
 echo "✅ Dockerfile created"
