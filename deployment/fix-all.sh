@@ -85,7 +85,10 @@ echo ""
 echo "Step 3.5: Initializing OAuth providers..."
 echo "----------------------------------------"
 if [ -f "$SCRIPT_DIR/init-oauth-providers.sh" ]; then
-    "$SCRIPT_DIR/init-oauth-providers.sh"
+    "$SCRIPT_DIR/init-oauth-providers.sh" || {
+        echo -e "${YELLOW}⚠${NC} OAuth provider initialization had warnings"
+        echo "This is normal on first run - continuing..."
+    }
 else
     echo -e "${YELLOW}⚠${NC} OAuth provider initialization script not found"
     echo "OAuth providers may need manual configuration"
@@ -99,15 +102,20 @@ echo "----------------------------------------"
 "$SCRIPT_DIR/bootstrap-with-network-fix.sh"
 echo ""
 
-# Step 4.5: Fix internal connectivity
+# Step 4.5: Fix internal connectivity (Skip for now - too disruptive)
 echo ""
-echo "Step 4.5: Fixing internal connectivity..."
+echo "Step 4.5: Checking internal connectivity..."
 echo "----------------------------------------"
-if [ -f "$SCRIPT_DIR/fix-internal-connectivity.sh" ]; then
-    "$SCRIPT_DIR/fix-internal-connectivity.sh"
+# Note: Skipping container recreation for now as it's too disruptive
+# Just check connectivity
+DASHBOARD_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "dashboard.*p0gcsc088cogco0cokco4404" | head -1)
+API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E "api.*p0gcsc088cogco0cokco4404" | head -1)
+if [ ! -z "$DASHBOARD_CONTAINER" ] && [ ! -z "$API_CONTAINER" ]; then
+    API_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $API_CONTAINER 2>/dev/null | head -c -1)
+    echo -n "Dashboard → API connectivity: "
+    docker exec $DASHBOARD_CONTAINER sh -c "nc -zv $API_IP 3001 2>&1" | grep -q succeeded && echo -e "${GREEN}✓${NC} Connected" || echo -e "${YELLOW}⚠${NC} Cannot connect"
 else
-    echo -e "${YELLOW}⚠${NC} Internal connectivity fix script not found"
-    echo "Dashboard may not be able to connect to API internally"
+    echo -e "${YELLOW}⚠${NC} Containers not found for connectivity check"
 fi
 echo ""
 

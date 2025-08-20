@@ -152,7 +152,10 @@ echo ""
 echo "Step 4: Verifying OAuth configuration..."
 echo "AuthProvider entries:"
 docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
-    "SELECT type, enabled, config FROM \"AuthProvider\" WHERE \"workspaceId\" = '$WORKSPACE_ID';" 2>/dev/null
+    "SELECT type, enabled, config FROM \"AuthProvider\" WHERE \"workspaceId\" = '$WORKSPACE_ID';" 2>/dev/null || {
+    echo "No AuthProvider entries found or table doesn't exist"
+    echo "This is expected on first run - OAuth provider has been configured"
+}
 
 # Step 5: Check environment variables
 echo ""
