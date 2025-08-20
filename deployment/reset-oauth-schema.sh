@@ -58,17 +58,40 @@ END $$;
 EOF
 echo ""
 
-# Step 2: Drop existing table
-echo "Step 2: Dropping existing AuthProvider table..."
-docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << 'EOF'
-DROP TABLE IF EXISTS "AuthProvider" CASCADE;
-EOF
-echo "✅ Old table dropped"
-echo ""
+# Step 2: Check if we need to rename column or drop table
+echo "Step 2: Checking table structure..."
+COLUMN_EXISTS=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c \
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'AuthProvider' AND column_name = 'provider';" 2>/dev/null | tr -d ' \n')
 
-# Step 3: Create new table with correct schema
-echo "Step 3: Creating AuthProvider table with correct schema..."
-docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << 'EOF'
+if [ ! -z "$COLUMN_EXISTS" ]; then
+    echo "Found 'provider' column - renaming to 'type'..."
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -c \
+        "ALTER TABLE \"AuthProvider\" RENAME COLUMN provider TO type;" 2>&1
+    echo "✅ Column renamed"
+    
+    # Add missing columns
+    docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << 'EOF'
+ALTER TABLE "AuthProvider" 
+ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL;
+
+ALTER TABLE "AuthProvider" 
+ALTER COLUMN config SET DEFAULT '{}';
+
+UPDATE "AuthProvider" 
+SET config = '{"provider": "google", "scope": ["openid", "email", "profile"]}'
+WHERE config IS NULL OR config = '{}';
+EOF
+    echo "✅ Table structure fixed"
+else
+    # Check if table exists with correct column
+    TYPE_EXISTS=$(docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed -t -c \
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'AuthProvider' AND column_name = 'type';" 2>/dev/null | tr -d ' \n')
+    
+    if [ -z "$TYPE_EXISTS" ]; then
+        echo "Table doesn't exist or has wrong structure - recreating..."
+        docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << 'EOF'
+DROP TABLE IF EXISTS "AuthProvider" CASCADE;
+
 -- Create AuthProvider table with correct schema
 CREATE TABLE "AuthProvider" (
     "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -90,7 +113,29 @@ FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UP
 -- Grant permissions
 GRANT ALL PRIVILEGES ON "AuthProvider" TO dittofeed;
 EOF
-echo "✅ Table created with correct schema"
+        echo "✅ Table recreated with correct schema"
+    else
+        echo "✅ Table already has correct structure"
+    fi
+fi
+echo ""
+
+# Step 3: Ensure indexes and constraints exist
+echo "Step 3: Ensuring indexes and constraints..."
+docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << 'EOF'
+-- Create index if it doesn't exist
+CREATE UNIQUE INDEX IF NOT EXISTS "AuthProvider_workspaceId_type_key" 
+ON "AuthProvider"("workspaceId", "type");
+
+-- Add foreign key if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AuthProvider_workspaceId_fkey') THEN
+        ALTER TABLE "AuthProvider" ADD CONSTRAINT "AuthProvider_workspaceId_fkey" 
+        FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
+EOF
 echo ""
 
 # Step 4: Get workspace and insert OAuth provider
