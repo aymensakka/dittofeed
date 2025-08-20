@@ -80,11 +80,35 @@ else
 fi
 echo ""
 
+# Step 3.5: Initialize OAuth providers
+echo ""
+echo "Step 3.5: Initializing OAuth providers..."
+echo "----------------------------------------"
+if [ -f "$SCRIPT_DIR/init-oauth-providers.sh" ]; then
+    "$SCRIPT_DIR/init-oauth-providers.sh"
+else
+    echo -e "${YELLOW}⚠${NC} OAuth provider initialization script not found"
+    echo "OAuth providers may need manual configuration"
+fi
+echo ""
+
 # Step 4: Fix network and IPs
 echo ""
 echo "Step 4: Fixing network configuration and IPs..."
 echo "----------------------------------------"
 "$SCRIPT_DIR/bootstrap-with-network-fix.sh"
+echo ""
+
+# Step 4.5: Fix internal connectivity
+echo ""
+echo "Step 4.5: Fixing internal connectivity..."
+echo "----------------------------------------"
+if [ -f "$SCRIPT_DIR/fix-internal-connectivity.sh" ]; then
+    "$SCRIPT_DIR/fix-internal-connectivity.sh"
+else
+    echo -e "${YELLOW}⚠${NC} Internal connectivity fix script not found"
+    echo "Dashboard may not be able to connect to API internally"
+fi
 echo ""
 
 # Step 5: Fix Dashboard routing (basePath issue)
@@ -154,11 +178,13 @@ echo "====================================================="
 echo "Fix Complete!"
 echo "====================================================="
 echo ""
-echo "All existing scripts have been run:"
+echo "All scripts have been run:"
 echo "  1. bootstrap-simple.sh - Status check"
 echo "  2. manual-bootstrap.sh - Workspace creation (if needed)"
 echo "  3. Database schema fix for multi-tenant support"
+echo "  3.5. init-oauth-providers.sh - OAuth provider initialization"
 echo "  4. bootstrap-with-network-fix.sh - Network and IP fixes"
+echo "  4.5. fix-internal-connectivity.sh - Internal connectivity fix"
 echo "  5. Dashboard routing check (basePath /dashboard)"
 echo "  6. update-cf-from-host.sh - Cloudflare tunnel update"
 echo ""
