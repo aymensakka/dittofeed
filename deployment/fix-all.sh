@@ -84,7 +84,16 @@ echo ""
 echo ""
 echo "Step 3.5: Initializing OAuth providers..."
 echo "----------------------------------------"
-if [ -f "$SCRIPT_DIR/init-oauth-providers.sh" ]; then
+# Use reset script to ensure correct schema
+if [ -f "$SCRIPT_DIR/reset-oauth-schema.sh" ]; then
+    "$SCRIPT_DIR/reset-oauth-schema.sh" || {
+        echo -e "${YELLOW}⚠${NC} OAuth provider initialization had warnings"
+        echo "Trying fallback method..."
+        if [ -f "$SCRIPT_DIR/init-oauth-providers.sh" ]; then
+            "$SCRIPT_DIR/init-oauth-providers.sh" || true
+        fi
+    }
+elif [ -f "$SCRIPT_DIR/init-oauth-providers.sh" ]; then
     "$SCRIPT_DIR/init-oauth-providers.sh" || {
         echo -e "${YELLOW}⚠${NC} OAuth provider initialization had warnings"
         echo "This is normal on first run - continuing..."

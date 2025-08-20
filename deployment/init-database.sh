@@ -178,6 +178,17 @@ CREATE TABLE IF NOT EXISTS "SubscriptionGroup" (
     "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
+-- Create AuthProvider table
+CREATE TABLE IF NOT EXISTS "AuthProvider" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "workspaceId" UUID NOT NULL,
+    "type" TEXT NOT NULL,
+    "enabled" BOOLEAN DEFAULT true NOT NULL,
+    "config" JSONB DEFAULT '{}' NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
 -- Create ComputedProperty table
 CREATE TABLE IF NOT EXISTS "ComputedProperty" (
     "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -208,6 +219,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "DefaultEmailProvider_workspaceId_key" ON "Def
 CREATE UNIQUE INDEX IF NOT EXISTS "Journey_workspaceId_name_key" ON "Journey"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "SubscriptionGroup_workspaceId_name_key" ON "SubscriptionGroup"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "ComputedProperty_workspaceId_name_key" ON "ComputedProperty"("workspaceId", "name");
+CREATE UNIQUE INDEX IF NOT EXISTS "AuthProvider_workspaceId_type_key" ON "AuthProvider"("workspaceId", "type");
 
 -- Add foreign key constraints if they don't exist
 DO $$ 
@@ -284,6 +296,11 @@ BEGIN
     
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ComputedProperty_workspaceId_fkey') THEN
         ALTER TABLE "ComputedProperty" ADD CONSTRAINT "ComputedProperty_workspaceId_fkey" 
+        FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AuthProvider_workspaceId_fkey') THEN
+        ALTER TABLE "AuthProvider" ADD CONSTRAINT "AuthProvider_workspaceId_fkey" 
         FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
 END $$;

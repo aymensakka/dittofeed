@@ -31,8 +31,11 @@ echo ""
 # Step 1: Check and create AuthProvider table if missing
 echo "Step 1: Ensuring AuthProvider table exists..."
 docker exec $POSTGRES_CONTAINER psql -U dittofeed -d dittofeed << 'EOF'
--- Create AuthProvider table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "AuthProvider" (
+-- Drop existing incorrect table if it exists
+DROP TABLE IF EXISTS "AuthProvider" CASCADE;
+
+-- Create AuthProvider table with correct schema
+CREATE TABLE "AuthProvider" (
     "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "workspaceId" UUID NOT NULL,
     "type" TEXT NOT NULL,
