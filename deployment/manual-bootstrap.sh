@@ -291,11 +291,17 @@ if [ "$1" = "--build-dashboard" ]; then
         export CLICKHOUSE_USER=dittofeed
         export CLICKHOUSE_PASSWORD=password
         
-        echo "Installing dependencies and building emailo..."
+        echo "Installing dependencies and building all packages..."
         # First install all dependencies
         yarn install
         
-        # Build emailo package first (dashboard depends on it)
+        # Build all dependent packages in correct order
+        echo "Building isomorphic-lib package..."
+        yarn workspace isomorphic-lib build
+        
+        echo "Building backend-lib package..."
+        yarn workspace backend-lib build
+        
         echo "Building emailo package..."
         yarn workspace emailo build
         

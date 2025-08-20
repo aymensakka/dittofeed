@@ -43,12 +43,18 @@ echo "  NEXT_PUBLIC_AUTH_MODE=multi-tenant"
 echo "  CLICKHOUSE_HOST=clickhouse"
 echo ""
 
-echo "Step 2: Installing dependencies and building emailo..."
-echo "-------------------------------------------------------"
+echo "Step 2: Installing dependencies and building all packages..."
+echo "-------------------------------------------------------------"
 # First install all dependencies
 yarn install
 
-# Build emailo package first (dashboard depends on it)
+# Build all dependent packages in correct order
+echo "Building isomorphic-lib package..."
+yarn workspace isomorphic-lib build
+
+echo "Building backend-lib package..."
+yarn workspace backend-lib build
+
 echo "Building emailo package..."
 yarn workspace emailo build
 
