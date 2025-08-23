@@ -1,5 +1,6 @@
 import { Static, TSchema } from "@sinclair/typebox";
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import { AxiosRequestConfig, AxiosResponse } from "axios";
+import axiosInstance from "./axiosInstance";
 import FileSaver from "file-saver";
 import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -37,7 +38,7 @@ export function downloadFileFactory<D>({
       type: CompletionStatus.InProgress,
     });
     try {
-      const response = await axios(requestConfig);
+      const response = await axiosInstance(requestConfig);
       const contentDisposition = response.headers["content-disposition"];
       let filename = "output.csv"; // Default filename
 
@@ -113,7 +114,7 @@ export default function apiRequestHandlerFactory<D, S extends TSchema>({
     let response: AxiosResponse;
 
     try {
-      response = await axios(requestConfig);
+      response = await axiosInstance(requestConfig);
     } catch (e) {
       const error = e as Error;
 

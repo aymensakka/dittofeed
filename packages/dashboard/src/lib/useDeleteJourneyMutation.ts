@@ -4,12 +4,13 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus,
   DeleteJourneyRequest,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 import { JOURNEYS_QUERY_KEY } from "./constants";
@@ -34,7 +35,7 @@ export function useDeleteJourneyMutation(
     }
     const workspaceId = workspace.value.id;
 
-    await axios.delete(`${baseApiUrl}/journeys/v2`, {
+    await axiosInstance.delete(`${baseApiUrl}/journeys/v2`, {
       params: {
         workspaceId,
         id,

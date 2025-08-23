@@ -28,8 +28,9 @@ export async function setWorkspaceContext(workspaceId: string): Promise<void> {
   }
 
   try {
+    // Use sql.raw to properly set the PostgreSQL configuration parameter
     await db().execute(
-      sql`SET LOCAL app.current_workspace_id = ${workspaceId}`
+      sql.raw(`SET LOCAL app.current_workspace_id = '${workspaceId}'`)
     );
     
     logger().debug(
@@ -51,8 +52,9 @@ export async function setWorkspaceContext(workspaceId: string): Promise<void> {
  */
 export async function clearWorkspaceContext(): Promise<void> {
   try {
+    // Use sql.raw to properly clear the PostgreSQL configuration parameter
     await db().execute(
-      sql`SET LOCAL app.current_workspace_id = ''`
+      sql.raw(`SET LOCAL app.current_workspace_id = ''`)
     );
     
     logger().debug("Cleared RLS workspace context");

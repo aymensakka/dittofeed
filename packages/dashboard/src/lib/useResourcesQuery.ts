@@ -1,5 +1,5 @@
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
-import axios from "axios";
+
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -37,7 +37,7 @@ export function useResourcesQuery(
     queryKey: ["resources", { ...params, workspaceId }],
     queryFn: async () => {
       try {
-        const response = await axios.get(`${baseApiUrl}/resources`, {
+        const response = await axiosInstance.get(`${baseApiUrl}/resources`, {
           params: {
             ...params,
             workspaceId,

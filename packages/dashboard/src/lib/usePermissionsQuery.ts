@@ -3,7 +3,8 @@ import {
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "./axiosInstance";
 import {
   CompletionStatus,
   GetWorkspaceMemberRolesRequest,
@@ -37,7 +38,7 @@ export function usePermissionsQuery(
       throw new Error("Workspace not available");
     }
 
-    const response = await axios.get(`${baseApiUrl}/permissions`, {
+    const response = await axiosInstance.get(`${baseApiUrl}/permissions`, {
       params: {
         workspaceId,
       } satisfies GetWorkspaceMemberRolesRequest,

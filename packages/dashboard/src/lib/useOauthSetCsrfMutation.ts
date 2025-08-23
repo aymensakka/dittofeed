@@ -4,11 +4,12 @@ import {
   UseMutationResult,
   // useQueryClient, // Not strictly needed for this mutation unless invalidating something specific
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus, // Import if workspace check is re-enabled
   SetCsrfCookieRequest, // This type should now include workspaceId
 } from "isomorphic-lib/src/types";
+import axiosInstance from "./axiosInstance";
 import { useContext } from "react";
 
 import { useAppStorePick } from "./appStore"; // Will be used now
@@ -52,7 +53,7 @@ export function useOauthSetCsrfMutation(
         ? "/dashboard-l/api-d/embedded"
         : "/dashboard/api";
     const url = `${basePath}/oauth/set-csrf-cookie`;
-    await axios.post(url, apiRequest, {
+    await axiosInstance.post(url, apiRequest, {
       headers: {
         "Content-Type": "application/json",
         ...authHeaders,

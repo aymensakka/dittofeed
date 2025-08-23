@@ -1,4 +1,5 @@
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
+
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -34,7 +35,7 @@ export function useJourneyStats(
           workspaceId,
           journeyIds: args.journeyIds,
         };
-        const response = await axios.get(`${baseApiUrl}/journeys/stats`, {
+        const response = await axiosInstance.get(`${baseApiUrl}/journeys/stats`, {
           params,
           headers: authHeaders,
         });

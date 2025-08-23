@@ -4,12 +4,13 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus,
   DeleteSegmentRequest,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 import { SEGMENTS_QUERY_KEY } from "./useSegmentsQuery"; // Assuming SEGMENTS_QUERY_KEY is exported from here
@@ -34,7 +35,7 @@ export function useDeleteSegmentMutation(
     }
     const workspaceId = workspace.value.id;
 
-    await axios.delete(`${baseApiUrl}/segments/v2`, {
+    await axiosInstance.delete(`${baseApiUrl}/segments/v2`, {
       params: {
         workspaceId,
         id,

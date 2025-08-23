@@ -13,6 +13,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/jest": "^29.2.6",
     "@types/node": "20.14.8",
     "@typescript-eslint/eslint-plugin": "^5.60.0",
@@ -75,5 +76,8 @@
     "date-fns-tz": "2.0.0",
     "@fastify/cookie": "9.0.4"
   },
-  "packageManager": "yarn@4.1.1"
+  "packageManager": "yarn@4.1.1",
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+
+import axiosInstance from "./axiosInstance";
 import {
   CompletionStatus,
   GetMessageTemplatesResponse,
@@ -42,7 +43,7 @@ export function useMessageTemplateUpdateMutation() {
       workspaceId,
     };
 
-    const response = await axios.put<MessageTemplateResource>(
+    const response = await axiosInstance.put<MessageTemplateResource>(
       `${baseApiUrl}/content/templates`,
       requestData,
       { headers: authHeaders },

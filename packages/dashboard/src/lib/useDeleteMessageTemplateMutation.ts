@@ -4,13 +4,14 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   ChannelType,
   CompletionStatus,
   DeleteMessageTemplateRequest as ApiDeleteMessageTemplateRequest,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 
@@ -44,7 +45,7 @@ export function useDeleteMessageTemplateMutation(
     const workspaceId = workspace.value.id;
     const { id, channelType } = variables;
 
-    await axios.delete(`${baseApiUrl}/content/templates/v2`, {
+    await axiosInstance.delete(`${baseApiUrl}/content/templates/v2`, {
       params: {
         workspaceId,
         id,

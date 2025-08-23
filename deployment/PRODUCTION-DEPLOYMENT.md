@@ -220,6 +220,13 @@ NEXT_PUBLIC_API_URL=https://api.com.caramelme.com
 CORS_ORIGIN=https://dashboard.com.caramelme.com
 CF_TUNNEL_TOKEN=eyJhIjoiM2VhYWVhZTU0YTRjYWYwMWYzZGY1OGRkYTZjMjhkMzAiLCJzIjoid3lYb2wyR21WWkZmeHYrblExRHNwNUNvT0JwaUpQUC93cjd4ZXZ5dkZpTT0iLCJ0IjoiY2I3YmMwMjctN2U5Yy00YzFmLTk4ZTUtZDIwYTY3M2UyNDE1In0=
 
+# OAuth Authentication (Required for multi-tenant with Google OAuth)
+AUTH_MODE=multi-tenant
+AUTH_PROVIDER=google
+GOOGLE_CLIENT_ID=[your-google-client-id]
+GOOGLE_CLIENT_SECRET=[your-google-client-secret]
+SECRET_KEY=[your-session-secret-key]
+
 # Docker Registry Credentials (Required for Nexus)
 DOCKER_REGISTRY_USERNAME=[your-nexus-username]
 DOCKER_REGISTRY_PASSWORD=[your-nexus-password]
@@ -227,13 +234,12 @@ DOCKER_REGISTRY_PASSWORD=[your-nexus-password]
 # OPTIONAL - Have defaults in docker-compose:
 GRAFANA_USER=admin
 GRAFANA_ROOT_URL=https://grafana.com.caramelme.com
-AUTH_MODE=multi-tenant
 ENABLE_RLS_ENFORCEMENT=true
 AUDIT_LOG_ENABLED=true
 AUDIT_LOG_RETENTION_DAYS=90
 TENANT_CACHE_TTL=300
 DEFAULT_WORKSPACE_NAME=Default Workspace
-ENABLE_WORKSPACE_CREATION=true
+ENABLE_WORKSPACE_CREATION=false  # Changed to false for OAuth security
 DB_POOL_SIZE=20
 DB_POOL_TIMEOUT=30000
 REDIS_POOL_SIZE=10
@@ -346,14 +352,44 @@ NEXT_PUBLIC_MONITORING_ENABLED=true
 
 ## 🛡️ Security Configuration
 
+### OAuth Authentication Setup
+
+**Google OAuth Configuration:**
+
+1. **Create OAuth Credentials:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing
+   - Enable Google+ API
+   - Create OAuth 2.0 credentials
+   - Add authorized redirect URIs:
+     - Production: `https://api.com.caramelme.com/api/public/auth/oauth2/callback/google`
+     - Local testing: `http://localhost:3001/api/public/auth/oauth2/callback/google`
+
+2. **Database Schema for OAuth:**
+   ```bash
+   # For new installations, run init-database.sh which includes OAuth tables
+   ./deployment/init-database.sh
+   
+   # For existing installations, apply OAuth migration
+   docker exec $(docker ps -q -f name=postgres) psql -U dittofeed -d dittofeed < deployment/oauth-migration.sql
+   ```
+
+3. **User Management:**
+   - OAuth users must be explicitly added to workspaces
+   - No automatic workspace creation for new OAuth users
+   - Domain-based auto-join is disabled for security
+   - Admins manage users via API or database
+
 ### Enterprise Multitenancy Features
 
 **Automatically Enabled:**
 - ✅ **Row-Level Security (RLS)**: Database-enforced tenant isolation
+- ✅ **OAuth Authentication**: Google OAuth with explicit workspace access
 - ✅ **Resource Quotas**: Per-workspace limits and validation
 - ✅ **Audit Logging**: Comprehensive security event tracking
 - ✅ **Workspace Context**: Automatic tenant scoping
 - ✅ **API Key Scoping**: Workspace-bound authentication
+- ✅ **No Auto-Creation**: New users cannot create workspaces
 
 **Security Validation:**
 ```bash

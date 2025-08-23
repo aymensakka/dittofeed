@@ -3,7 +3,7 @@ import {
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -53,7 +53,7 @@ export function useComputedPropertyPeriodsQuery<
     queryKey,
     queryFn: async (): Promise<GetComputedPropertyPeriodsResponse> => {
       try {
-        const response = await axios.get(
+        const response = await axiosInstance.get(
           `${baseApiUrl}/computed-properties/periods`,
           {
             params: {

@@ -18,6 +18,7 @@ import { GetServerSideProps, NextApiRequest } from "next";
 
 import { apiBase } from "./apiBase";
 import { GetDFServerSideProps, PropsWithInitialState } from "./types";
+import { checkMultiTenantSession } from "./multiTenantAuth";
 
 const backendConfig = backendConfigFromLib;
 const logger = backendLogger;
@@ -28,6 +29,38 @@ export const requestContext: <T>(
 ) => GetServerSideProps<PropsWithInitialState<T>> =
   (gssp) => async (context) => {
     const { profile } = context.req as { profile?: OpenIdProfile };
+    
+    // For multi-tenant mode, check session via API
+    if (backendConfig().authMode === "multi-tenant") {
+      const session = await checkMultiTenantSession(context.req as any, context.res as any);
+      if (session) {
+        console.log("Multi-tenant session found:", session);
+        console.log("JWT token available:", !!session.jwt);
+        
+        // Add JWT to authorization header if available
+        const headers: any = {
+          ...context.req.headers,
+          "x-workspace-id": session.workspaceId,
+        };
+        
+        if (session.jwt) {
+          headers.authorization = `Bearer ${session.jwt}`;
+        }
+        
+        console.log("Calling getRequestContext with workspace:", session.workspaceId, "JWT:", !!session.jwt);
+        const rc = await getRequestContext(headers, undefined);
+        console.log("Request context result:", rc.isOk() ? "OK" : rc.error);
+        if (rc.isOk()) {
+          const features = await getFeatures({
+            workspaceId: rc.value.workspace.id,
+          });
+          return gssp(context, { ...rc.value, features });
+        } else {
+          console.error("Request context failed:", rc.error);
+        }
+      }
+    }
+    
     const rc = await getRequestContext(context.req.headers, profile);
     const { onboardingUrl } = backendConfig();
     if (rc.isErr()) {
@@ -86,6 +119,19 @@ export const requestContext: <T>(
               redirect: {
                 destination: SINGLE_TENANT_LOGIN_PAGE,
                 permanent: false,
+              },
+            };
+          }
+          // For multi-tenant, redirect to OAuth login
+          if (backendConfig().authMode === "multi-tenant") {
+            const authProvider = backendConfig().authProvider || "google";
+            // Include the basePath in the returnUrl
+            const returnUrl = `/dashboard${context.resolvedUrl}`;
+            return {
+              redirect: {
+                destination: `http://localhost:3001/api/public/auth/oauth2/initiate/${authProvider}?returnUrl=${encodeURIComponent(returnUrl)}`,
+                permanent: false,
+                basePath: false,
               },
             };
           }

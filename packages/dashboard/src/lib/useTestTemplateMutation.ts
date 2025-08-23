@@ -3,7 +3,8 @@ import {
   UseMutationOptions,
   UseMutationResult,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -58,7 +59,7 @@ export function useTestTemplateMutation(
       workspaceId,
     };
 
-    const response = await axios.post<MessageTemplateTestResponse>(
+    const response = await axiosInstance.post<MessageTemplateTestResponse>(
       `${baseApiUrl}/content/templates/test`,
       fullRequestParams,
       {

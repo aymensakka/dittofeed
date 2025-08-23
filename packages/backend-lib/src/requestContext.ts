@@ -53,6 +53,8 @@ export async function findAndCreateRoles(
 ): Promise<RolesWithWorkspace> {
   const domain = member.email?.split("@")[1];
 
+  // Disable domain-based auto-join for better workspace isolation
+  // Users must be explicitly added to workspaces by administrators
   const workspaces = await db()
     .select()
     .from(dbWorkspace)
@@ -66,43 +68,11 @@ export async function findAndCreateRoles(
     .where(
       and(
         eq(dbWorkspace.status, WorkspaceStatusDbEnum.Active),
-        or(
-          eq(dbWorkspaceMemberRole.workspaceMemberId, member.id),
-          domain ? eq(dbWorkspace.domain, domain) : undefined,
-        ),
+        eq(dbWorkspaceMemberRole.workspaceMemberId, member.id),
       ),
     );
 
-  const domainWorkspacesWithoutRole = workspaces.filter(
-    (w) => w.WorkspaceMemberRole === null,
-  );
   let roles = workspaces.flatMap((w) => w.WorkspaceMemberRole ?? []);
-  if (domainWorkspacesWithoutRole.length !== 0) {
-    const newRoles = (
-      await Promise.all(
-        domainWorkspacesWithoutRole.map((w) =>
-          db()
-            .insert(dbWorkspaceMemberRole)
-            .values({
-              workspaceId: w.Workspace.id,
-              workspaceMemberId: member.id,
-              role: "Admin",
-            })
-            .onConflictDoNothing()
-            .returning(),
-        ),
-      )
-    ).flat();
-    logger().debug(
-      {
-        newRoles,
-      },
-      "new roles",
-    );
-    for (const role of newRoles) {
-      roles.push(role);
-    }
-  }
 
   const workspaceById = workspaces.reduce((acc, w) => {
     acc.set(w.Workspace.id, w.Workspace);
@@ -285,8 +255,7 @@ export async function getMultiTenantRequestContext({
   let member: WorkspaceMember;
   if (
     !existingMember ||
-    existingMember.emailVerified !== emailVerified ||
-    existingMember.image !== picture
+    existingMember.emailVerified !== emailVerified
   ) {
     const [updatedMember] = await db()
       .insert(dbWorkspaceMember)
@@ -294,7 +263,6 @@ export async function getMultiTenantRequestContext({
         id: existingMember?.id,
         email,
         emailVerified,
-        image: picture,
         name,
         nickname,
       })
@@ -304,7 +272,6 @@ export async function getMultiTenantRequestContext({
           : [dbWorkspaceMember.email],
         set: {
           emailVerified,
-          image: picture,
           name,
           nickname,
         },
@@ -359,7 +326,7 @@ export async function getMultiTenantRequestContext({
     emailVerified: member.emailVerified,
     name: member.name ?? undefined,
     nickname: member.nickname ?? undefined,
-    picture: member.image ?? undefined,
+    picture: undefined,
     createdAt: member.createdAt.toISOString(),
   };
 

@@ -4,10 +4,17 @@ import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import logger from "backend-lib/src/logger";
 import { SESSION_KEY } from "backend-lib/src/requestContext";
+import { generateJwtToken } from "backend-lib/src/auth";
+import { OpenIdProfile } from "backend-lib/src/types";
 import { FastifyInstance } from "fastify";
 import { randomBytes } from "crypto";
 import { URL } from "url";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+
+// Declare global type for auth tokens
+declare global {
+  var authTokens: Map<string, any> | undefined;
+}
 
 interface OAuthState {
   workspaceId?: string;
@@ -87,6 +94,11 @@ export default async function multiTenantController(fastify: FastifyInstance) {
       const googleClientId = process.env.GOOGLE_CLIENT_ID;
       const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
       
+      logger().info({ 
+        clientId: googleClientId,
+        hasSecret: !!googleClientSecret 
+      }, "Using Google OAuth credentials");
+      
       if (!googleClientId || !googleClientSecret) {
         logger().error("Google OAuth credentials not configured");
         return reply.status(500).send({ 
@@ -106,7 +118,10 @@ export default async function multiTenantController(fastify: FastifyInstance) {
       oauthStates.set(stateKey, state);
 
       // Build Google OAuth URL
-      const redirectUri = `${config.dashboardUrl || 'https://communication-api.caramelme.com'}/api/public/auth/oauth2/callback/google`;
+      // Use the request's host to build the redirect URI dynamically
+      const protocol = request.headers['x-forwarded-proto'] || 'http';
+      const host = request.headers['x-forwarded-host'] || request.headers.host || 'localhost:3001';
+      const redirectUri = `${protocol}://${host}/api/public/auth/oauth2/callback/google`;
       
       const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       googleAuthUrl.searchParams.append('client_id', googleClientId);
@@ -152,6 +167,13 @@ export default async function multiTenantController(fastify: FastifyInstance) {
       const { provider } = request.params;
       const { code, state, error } = request.query;
 
+      logger().info({ 
+        provider, 
+        hasCode: !!code, 
+        hasState: !!state,
+        error 
+      }, "OAuth callback received");
+
       if (error) {
         logger().error({ error }, "OAuth callback error");
         return reply.redirect(302, '/dashboard/auth/error?message=' + encodeURIComponent(error));
@@ -164,7 +186,7 @@ export default async function multiTenantController(fastify: FastifyInstance) {
       // Verify state
       const storedState = oauthStates.get(state);
       if (!storedState) {
-        logger().error("Invalid OAuth state");
+        logger().error({ state, availableStates: Array.from(oauthStates.keys()) }, "Invalid OAuth state");
         return reply.status(400).send({ error: "Invalid state" });
       }
       
@@ -183,7 +205,10 @@ export default async function multiTenantController(fastify: FastifyInstance) {
 
       try {
         // Exchange code for tokens
-        const redirectUri = `${config.dashboardUrl || 'https://communication-api.caramelme.com'}/api/public/auth/oauth2/callback/google`;
+        // Use the request's host to build the redirect URI dynamically
+        const protocol = request.headers['x-forwarded-proto'] || 'http';
+        const host = request.headers['x-forwarded-host'] || request.headers.host || 'localhost:3001';
+        const redirectUri = `${protocol}://${host}/api/public/auth/oauth2/callback/google`;
         
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -221,16 +246,23 @@ export default async function multiTenantController(fastify: FastifyInstance) {
 
         const userInfo = await userInfoResponse.json() as GoogleUserInfo;
         
+        logger().info({ 
+          email: userInfo.email,
+          name: userInfo.name,
+          googleId: userInfo.id 
+        }, "Got user info from Google");
+        
         // Check if user has access to workspace
         let workspaceId: string | undefined = storedState.workspaceId;
         
         if (!workspaceId) {
-          // Find workspace member for this user email
-          const member = await db()
-            .select()
-            .from(schema.workspaceMember)
-            .where(eq(schema.workspaceMember.email, userInfo.email))
-            .limit(1);
+          // Find workspace member for this user email - using raw SQL due to schema mismatch
+          const memberResult = await db().execute(sql`
+            SELECT * FROM "WorkspaceMember" 
+            WHERE email = ${userInfo.email} 
+            LIMIT 1
+          `);
+          const member = memberResult.rows;
           
           if (member.length > 0 && member[0]) {
             // User exists, get their last workspace
@@ -254,85 +286,16 @@ export default async function multiTenantController(fastify: FastifyInstance) {
           }
           
           if (!workspaceId) {
-            // Check if there's a default workspace
-            const defaultWorkspace = await db()
-              .select()
-              .from(schema.workspace)
-              .where(eq(schema.workspace.type, "Root"))
-              .limit(1);
+            // No workspace access - redirect to error page
+            const domain = userInfo.email.split('@')[1];
+            logger().warn({ 
+              email: userInfo.email, 
+              domain 
+            }, "User does not belong to any organization");
             
-            if (defaultWorkspace.length > 0 && defaultWorkspace[0]) {
-              workspaceId = defaultWorkspace[0].id;
-              
-              // Create or update workspace member
-              const existingMember = await db()
-                .select()
-                .from(schema.workspaceMember)
-                .where(eq(schema.workspaceMember.email, userInfo.email))
-                .limit(1);
-              
-              let memberId: string;
-              
-              if (existingMember.length === 0) {
-                // Create new member
-                const newMember = await db()
-                  .insert(schema.workspaceMember)
-                  .values({
-                    email: userInfo.email,
-                    name: userInfo.name || userInfo.email,
-                    emailVerified: true,
-                    image: userInfo.picture || null,
-                    lastWorkspaceId: workspaceId,
-                  })
-                  .returning();
-                
-                if (newMember.length > 0 && newMember[0]) {
-                  memberId = newMember[0].id;
-                } else {
-                  throw new Error("Failed to create workspace member");
-                }
-              } else if (existingMember[0]) {
-                memberId = existingMember[0].id;
-                
-                // Update member's last workspace
-                await db()
-                  .update(schema.workspaceMember)
-                  .set({
-                    lastWorkspaceId: workspaceId,
-                    name: userInfo.name || existingMember[0].name || '',
-                    image: userInfo.picture || existingMember[0].image || null,
-                    emailVerified: true,
-                  })
-                  .where(eq(schema.workspaceMember.id, memberId));
-              } else {
-                throw new Error("Invalid member data");
-              }
-              
-              // Add workspace member role if not exists
-              const existingRole = await db()
-                .select()
-                .from(schema.workspaceMemberRole)
-                .where(
-                  and(
-                    eq(schema.workspaceMemberRole.workspaceMemberId, memberId),
-                    eq(schema.workspaceMemberRole.workspaceId, workspaceId)
-                  )
-                )
-                .limit(1);
-              
-              if (existingRole.length === 0) {
-                await db()
-                  .insert(schema.workspaceMemberRole)
-                  .values({
-                    workspaceMemberId: memberId,
-                    workspaceId: workspaceId,
-                    role: "Admin", // You might want to make this configurable
-                  });
-              }
-            } else {
-              logger().error({ email: userInfo.email }, "No workspace found for user");
-              return reply.redirect(302, '/dashboard/auth/error?message=' + encodeURIComponent('No workspace access'));
-            }
+            // Redirect to an error page with a clear message
+            const errorMessage = `Your email ${userInfo.email} does not belong to any registered organization. Please contact your administrator to get access.`;
+            return reply.redirect(302, `/dashboard/auth/no-organization?email=${encodeURIComponent(userInfo.email)}&message=${encodeURIComponent(errorMessage)}`);
           }
         }
 
@@ -348,22 +311,86 @@ export default async function multiTenantController(fastify: FastifyInstance) {
           return reply.status(500).send({ error: "Session configuration error" });
         }
         
-        request.session.set(SESSION_KEY, {
+        // Generate JWT token for the authenticated user
+        const jwtProfile: OpenIdProfile = {
+          sub: userInfo.id,
+          email: userInfo.email,
+          email_verified: true,
+          name: userInfo.name,
+          nickname: userInfo.email.split('@')[0],
+          picture: userInfo.picture,
+        };
+        
+        logger().info({ 
+          email: jwtProfile.email,
+          sub: jwtProfile.sub,
+          workspaceId 
+        }, "Generating JWT token for user");
+        
+        let jwtToken: string;
+        try {
+          jwtToken = generateJwtToken(jwtProfile);
+          logger().info({ tokenLength: jwtToken.length }, "JWT token generated successfully");
+        } catch (jwtError) {
+          logger().error({ 
+            jwtError,
+            jwtErrorMessage: jwtError instanceof Error ? jwtError.message : String(jwtError),
+            jwtProfile 
+          }, "Failed to generate JWT token");
+          throw new Error(`JWT generation failed: ${jwtError instanceof Error ? jwtError.message : String(jwtError)}`);
+        }
+        
+        // Set session on API side (for session-based checks)
+        const sessionData = {
           email: userInfo.email,
           name: userInfo.name || '',
           picture: userInfo.picture || '',
           workspaceId,
           provider: 'google',
+        };
+        
+        if (request.session && typeof request.session.set === 'function') {
+          request.session.set(SESSION_KEY, sessionData);
+        }
+        
+        // Create a temporary auth token that includes the JWT
+        const crypto = require('crypto');
+        const authToken = crypto.randomBytes(32).toString('hex');
+        
+        // Store the auth token with JWT temporarily (in production, use Redis)
+        if (!global.authTokens) {
+          global.authTokens = new Map();
+        }
+        global.authTokens.set(authToken, {
+          ...sessionData,
+          jwt: jwtToken,
         });
-
-        // Redirect to dashboard
-        const dashboardUrl = config.dashboardUrl || 'https://communication-dashboard.caramelme.com';
+        
+        logger().info({ 
+          authToken,
+          tokenCount: global.authTokens.size,
+          hasJwt: true 
+        }, "Created auth token with JWT");
+        
+        // Clean up old tokens after 5 minutes
+        setTimeout(() => global.authTokens?.delete(authToken), 5 * 60 * 1000);
+        
+        // Redirect to dashboard with auth token
+        let dashboardUrl = config.dashboardUrl || 'http://localhost:3000';
         const returnUrl = storedState.returnUrl || '/dashboard/journeys';
         
-        return reply.redirect(302, dashboardUrl + returnUrl);
+        const redirectUrl = `${dashboardUrl}/dashboard/api/auth/callback?token=${authToken}&returnUrl=${encodeURIComponent(returnUrl)}`;
+        logger().info({ redirectUrl }, "Redirecting to dashboard with JWT");
+        
+        // Don't include /dashboard in the URL since it's the basePath
+        return reply.redirect(302, redirectUrl);
         
       } catch (error) {
-        logger().error({ error }, "OAuth callback error");
+        logger().error({ 
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined 
+        }, "OAuth callback error");
         return reply.status(500).send({ error: "Authentication failed" });
       }
     }
@@ -401,6 +428,52 @@ export default async function multiTenantController(fastify: FastifyInstance) {
           picture: session.picture,
           workspaceId: session.workspaceId,
         },
+      });
+    }
+  );
+
+  // Token exchange endpoint
+  fastify.withTypeProvider<TypeBoxTypeProvider>().post(
+    "/auth/exchange",
+    {
+      schema: {
+        description: "Exchange auth token for session data",
+        body: Type.Object({
+          token: Type.String(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      const { token } = request.body;
+      
+      logger().info({ token }, "Token exchange requested");
+      
+      // Get the auth token data
+      if (!global.authTokens) {
+        logger().error("No authTokens map found");
+        return reply.status(400).send({ error: "Invalid token" });
+      }
+      
+      logger().info({ 
+        tokenCount: global.authTokens.size,
+        tokens: Array.from(global.authTokens.keys())
+      }, "Available tokens");
+      
+      const sessionData = global.authTokens.get(token);
+      if (!sessionData) {
+        logger().error({ token }, "Token not found or expired");
+        return reply.status(400).send({ error: "Invalid or expired token" });
+      }
+      
+      logger().info({ sessionData }, "Found session data for token");
+      
+      // Delete the token after use
+      global.authTokens.delete(token);
+      
+      return reply.send({
+        success: true,
+        session: sessionData,
+        jwt: sessionData.jwt,
       });
     }
   );

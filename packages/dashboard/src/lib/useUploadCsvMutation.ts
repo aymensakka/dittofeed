@@ -4,11 +4,12 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   SEGMENT_ID_HEADER,
   WORKSPACE_ID_HEADER,
 } from "isomorphic-lib/src/constants";
+import axiosInstance from "./axiosInstance";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 
 import { useAppStorePick } from "./appStore";
@@ -42,7 +43,7 @@ export function useUploadCsvMutation(
     }
     const workspaceId = workspace.value.id;
 
-    await axios.post(`${baseApiUrl}/segments/upload-csv`, data, {
+    await axiosInstance.post(`${baseApiUrl}/segments/upload-csv`, data, {
       headers: {
         ...authHeaders,
         [WORKSPACE_ID_HEADER]: workspaceId,

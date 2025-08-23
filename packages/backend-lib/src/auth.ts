@@ -1,19 +1,50 @@
 import { randomUUID } from "crypto";
 import { and, eq } from "drizzle-orm";
-import { createDecoder } from "fast-jwt";
+import { createDecoder, createSigner } from "fast-jwt";
 import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import { validate } from "uuid";
 
+import config from "./config";
 import { generateSecureKey } from "./crypto";
 import { db } from "./db";
 import { secret as dbSecret, writeKey as dbWriteKey } from "./db/schema";
 import logger from "./logger";
 import { OpenIdProfile, WriteKeyResource } from "./types";
 
-const decoder = createDecoder();
+// Create decoder with configured secret for multi-tenant mode
+function createJwtDecoder() {
+  const { jwtSecret, authMode } = config();
+  if (authMode === "multi-tenant" && jwtSecret) {
+    // Use createVerifier for verifying signed tokens
+    const { createVerifier } = require("fast-jwt");
+    return createVerifier({ key: jwtSecret, algorithms: ['HS256'] });
+  }
+  // For other modes, use default decoder
+  return createDecoder();
+}
+
+// Create JWT signer with configured secret
+export function createJwtSigner() {
+  const { jwtSecret } = config();
+  if (!jwtSecret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+  return createSigner({ 
+    key: jwtSecret,
+    algorithm: 'HS256',
+    expiresIn: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+  });
+}
+
+// Generate JWT token for authenticated user
+export function generateJwtToken(profile: OpenIdProfile): string {
+  const signer = createJwtSigner();
+  return signer(profile);
+}
 
 export function decodeJwtHeader(header: string): OpenIdProfile | null {
   const bearerToken = header.replace("Bearer ", "");
+  const decoder = createJwtDecoder();
   const decoded: unknown | null = bearerToken ? decoder(bearerToken) : null;
 
   if (!decoded) {

@@ -106,15 +106,20 @@ export function getSubscriptionGroupDetails(
 export async function getSubscriptionGroupWithAssignment({
   subscriptionGroupId,
   userId,
+  workspaceId,
 }: {
   subscriptionGroupId: string;
   userId: string;
+  workspaceId: string;
 }): Promise<SubscriptionGroupWithAssignment | null> {
   if (!validateUuid(subscriptionGroupId)) {
     return null;
   }
   const sg = await db().query.subscriptionGroup.findFirst({
-    where: eq(dbSubscriptionGroup.id, subscriptionGroupId),
+    where: and(
+      eq(dbSubscriptionGroup.id, subscriptionGroupId),
+      eq(dbSubscriptionGroup.workspaceId, workspaceId)
+    ),
     with: {
       segments: true,
     },

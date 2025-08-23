@@ -94,9 +94,14 @@ async function sendMessageInner({
   const [userPropertyAssignments, journey, subscriptionGroup] =
     await Promise.all([
       findAllUserPropertyAssignments({ userId, workspaceId, context }),
-      db().query.journey.findFirst({ where: eq(dbJourney.id, journeyId) }),
+      db().query.journey.findFirst({ 
+        where: and(
+          eq(dbJourney.id, journeyId),
+          eq(dbJourney.workspaceId, workspaceId)
+        )
+      }),
       subscriptionGroupId
-        ? getSubscriptionGroupWithAssignment({ userId, subscriptionGroupId })
+        ? getSubscriptionGroupWithAssignment({ userId, subscriptionGroupId, workspaceId })
         : null,
     ]);
 

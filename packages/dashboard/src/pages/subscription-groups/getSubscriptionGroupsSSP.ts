@@ -2,7 +2,7 @@ import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import { toSegmentResource } from "backend-lib/src/segments";
 import { subscriptionGroupToResource } from "backend-lib/src/subscriptionGroups";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   ChannelType,
   CompletionStatus,
@@ -34,7 +34,10 @@ const getSubscriptionGroupsSSP: GetServerSideProps<PropsWithInitialState> =
     }
     const workspaceId = dfContext.workspace.id;
     const subscriptionGroup = await db().query.subscriptionGroup.findFirst({
-      where: eq(schema.subscriptionGroup.id, id),
+      where: and(
+        eq(schema.subscriptionGroup.id, id),
+        eq(schema.subscriptionGroup.workspaceId, workspaceId)
+      ),
       with: {
         segments: true,
       },

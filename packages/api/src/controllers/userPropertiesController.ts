@@ -83,13 +83,14 @@ export default async function userPropertiesController(
       },
     },
     async (request, reply) => {
-      const { id }: DeleteUserPropertyRequest = request.body;
+      const { id, workspaceId }: DeleteUserPropertyRequest = request.body;
 
       const result = await db()
         .delete(schema.userProperty)
         .where(
           and(
             eq(schema.userProperty.id, id),
+            eq(schema.userProperty.workspaceId, workspaceId),
             not(
               inArray(
                 schema.userProperty.name,

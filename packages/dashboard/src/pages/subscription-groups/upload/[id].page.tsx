@@ -1,5 +1,5 @@
 import { Stack, Typography } from "@mui/material";
-import axios from "axios";
+import axiosInstance from "../../../lib/axiosInstance";
 import {
   SUBSRIPTION_GROUP_ID_HEADER,
   WORKSPACE_ID_HEADER,

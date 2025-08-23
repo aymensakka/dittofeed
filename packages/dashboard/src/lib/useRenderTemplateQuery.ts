@@ -1,9 +1,10 @@
 import {
+
   useQuery,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -75,7 +76,7 @@ export function useRenderTemplateQuery(
       workspaceId,
     };
 
-    const response = await axios.post<RenderMessageTemplateResponse>(
+    const response = await axiosInstance.post<RenderMessageTemplateResponse>(
       `${baseApiUrl}/content/templates/render`,
       fullRequestParams,
       {

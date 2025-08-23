@@ -9,6 +9,7 @@ import {
   OpenInNew,
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
+import axiosInstance from "../lib/axiosInstance";
 import {
   Autocomplete,
   Box,
@@ -47,7 +48,6 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import axios from "axios";
 import deepEqual from "fast-deep-equal";
 import {
   CursorDirectionEnum,

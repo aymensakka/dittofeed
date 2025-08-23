@@ -49,10 +49,23 @@ export function useBaseApiUrl({
 
 export function useAuthHeaders(): Record<string, string> {
   const authContext = useContext(AuthContext);
+  const { apiBase } = useAppStorePick(["apiBase"]);
+  
+  // Check if we're in multi-tenant mode
+  const isMultiTenant = typeof window !== "undefined" && 
+    process.env.NEXT_PUBLIC_AUTH_MODE === "multi-tenant";
+  
   switch (authContext.type) {
     case AuthModeTypeEnum.Embedded:
       return { Authorization: `Bearer ${authContext.token}` };
     case AuthModeTypeEnum.Base:
+      // In multi-tenant mode, we rely on cookies for authentication
+      // But we need to ensure cookies are sent with requests
+      if (isMultiTenant) {
+        // Return empty headers as cookies will be sent automatically
+        // But ensure withCredentials is set in axios
+        return {};
+      }
       return {};
     default:
       assertUnreachable(authContext);

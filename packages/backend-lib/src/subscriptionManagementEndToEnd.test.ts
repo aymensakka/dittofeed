@@ -131,6 +131,7 @@ describe("subscriptionManagementEndToEnd", () => {
         await getSubscriptionGroupWithAssignment({
           userId,
           subscriptionGroupId: subscriptionGroup.id,
+          workspaceId: workspace.id,
         });
       if (!subscriptionGroupWithAssignment) {
         throw new Error("Subscription group with assignment not found");
@@ -211,6 +212,7 @@ describe("subscriptionManagementEndToEnd", () => {
         await getSubscriptionGroupWithAssignment({
           userId,
           subscriptionGroupId: subscriptionGroup.id,
+          workspaceId: workspace.id,
         });
       if (!subscriptionGroupWithAssignment) {
         throw new Error("Subscription group with assignment not found");

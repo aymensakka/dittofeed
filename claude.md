@@ -35,6 +35,7 @@
 - **Schema**: Defined in `packages/backend-lib/src/db/schema.ts`
 - **Migrations**: Generated with Drizzle Kit in `packages/backend-lib/drizzle/`
 - **Workspace Isolation**: All tables include `workspaceId` for multitenancy
+- **Unique Constraints**: Critical for OAuth/Integration upsert operations
 
 ### Multitenancy Architecture
 - **Current State**: Workspace-based isolation with hierarchical support
@@ -67,9 +68,26 @@
 4. **Testing**: Unit tests before implementation
 5. **Integration**: Test across workspace boundaries
 
+### OAuth Integrations
+- **Google**: User authentication and Gmail integration
+- **HubSpot**: CRM integration with contacts, lists, and email tracking
+- **Schema Requirements**: Unique indexes on `OauthToken(workspaceId, name)` and `Integration(workspaceId, name)`
+- **Environment Variables**: Both server-side and client-side configs needed for dashboard
+
+#### Critical Database Schema Requirements
+```sql
+-- Required for OAuth token upsert operations
+CREATE UNIQUE INDEX "OauthToken_workspaceId_name_key" ON "OauthToken" ("workspaceId", "name");
+
+-- Required for integration upsert operations  
+CREATE UNIQUE INDEX "Integration_workspaceId_name_key" ON "Integration" ("workspaceId", "name");
+```
+
 ## Never Do
 - Skip workspace validation in API endpoints
 - Mix tenant data in queries
 - Hardcode workspace IDs
 - Bypass authentication in multi-tenant mode
 - Create database queries without workspace scoping
+- Use hardcoded OAuth client IDs in frontend components
+- Skip importing required dependencies (e.g., axios) in OAuth handlers

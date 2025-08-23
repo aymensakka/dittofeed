@@ -4,7 +4,8 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -53,7 +54,7 @@ export function useUpdateSegmentsMutation(
     }
     const workspaceId = workspace.value.id;
 
-    const response = await axios.put(
+    const response = await axiosInstance.put(
       `${baseApiUrl}/segments`,
       {
         ...data,

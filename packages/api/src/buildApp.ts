@@ -111,9 +111,9 @@ export async function registerApp(
     await opts.extendPlugins(server);
   }
 
-  if (authMode === "single-tenant") {
+  if (authMode === "single-tenant" || authMode === "multi-tenant") {
     if (!secretKey) {
-      throw new Error("SECRET_KEY must be set in single-tenant mode.");
+      throw new Error(`SECRET_KEY must be set in ${authMode} mode.`);
     }
     fastifyPluginPromises.push(
       server.register(secureSession, {

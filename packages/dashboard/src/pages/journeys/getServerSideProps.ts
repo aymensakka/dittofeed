@@ -48,7 +48,10 @@ export const journeyGetServerSideProps: JourneyGetServerSideProps =
       userProperties,
     ] = await Promise.all([
       await db().query.journey.findFirst({
-        where: eq(schema.journey.id, id),
+        where: and(
+          eq(schema.journey.id, id),
+          eq(schema.journey.workspaceId, workspaceId)
+        ),
       }),
       findSegmentResources({ workspaceId }),
       findMessageTemplates({ workspaceId }),

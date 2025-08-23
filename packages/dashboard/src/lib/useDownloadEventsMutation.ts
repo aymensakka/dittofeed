@@ -3,12 +3,13 @@ import {
   UseMutationOptions,
   UseMutationResult,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus,
   DownloadEventsRequest,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 
@@ -32,7 +33,7 @@ export function useDownloadEventsMutation(
     }
     const workspaceId = workspace.value.id;
 
-    const response = await axios.get(`${baseApiUrl}/events/download`, {
+    const response = await axiosInstance.get(`${baseApiUrl}/events/download`, {
       params: {
         workspaceId,
         ...params,

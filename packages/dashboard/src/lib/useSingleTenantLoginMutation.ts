@@ -3,7 +3,8 @@ import {
   UseMutationOptions,
   UseMutationResult,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "./axiosInstance";
 
 interface SingleTenantLoginParams {
   password: string;
@@ -37,7 +38,7 @@ export function useSingleTenantLoginMutation(
   SingleTenantLoginParams
 > {
   const mutationFn: SingleTenantLoginMutationFn = async (data) => {
-    const response = await axios.post(
+    const response = await axiosInstance.post(
       `${apiBaseUrl}/api/public/single-tenant/login`,
       {
         password: data.password,

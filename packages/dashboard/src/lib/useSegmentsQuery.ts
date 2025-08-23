@@ -3,7 +3,7 @@ import {
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -46,7 +46,7 @@ export function useSegmentsQuery<TData = GetSegmentsResponse>(
         if (!params?.ids) {
           resourceType = params?.resourceType ?? "Declarative";
         }
-        const response = await axios.get(`${baseApiUrl}/segments`, {
+        const response = await axiosInstance.get(`${baseApiUrl}/segments`, {
           params: {
             ...params,
             resourceType,

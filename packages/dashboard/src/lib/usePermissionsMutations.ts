@@ -4,7 +4,7 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus,
   CreateWorkspaceMemberRoleRequest,
@@ -13,6 +13,7 @@ import {
   WorkspaceMemberRoleResource,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 
@@ -45,7 +46,7 @@ export function useCreatePermissionMutation(
     }
     const workspaceId = workspace.value.id;
 
-    const response = await axios.post(
+    const response = await axiosInstance.post(
       `${baseApiUrl}/permissions`,
       {
         ...data,
@@ -111,7 +112,7 @@ export function useUpdatePermissionMutation(
     }
     const workspaceId = workspace.value.id;
 
-    const response = await axios.put(
+    const response = await axiosInstance.put(
       `${baseApiUrl}/permissions`,
       {
         ...data,
@@ -177,7 +178,7 @@ export function useDeletePermissionMutation(
     }
     const workspaceId = workspace.value.id;
 
-    await axios.delete(`${baseApiUrl}/permissions`, {
+    await axiosInstance.delete(`${baseApiUrl}/permissions`, {
       data: {
         ...data,
         workspaceId,

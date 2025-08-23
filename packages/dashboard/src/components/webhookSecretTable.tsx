@@ -69,10 +69,10 @@ export default function WebhookSecretTable() {
     });
   const addNewSecret = () => {
     setState((draft) => {
-      if (!draft.newSecretName) {
+      if (!draft.newSecretName || draft.newSecretName.trim() === "") {
         return;
       }
-      draft.newSecretValues.add(draft.newSecretName);
+      draft.newSecretValues.add(draft.newSecretName.trim());
       draft.newSecretName = null;
     });
   };
@@ -90,7 +90,7 @@ export default function WebhookSecretTable() {
           variant="outlined"
           onClick={() => {
             setState((draft) => {
-              draft.newSecretName = "";
+              draft.newSecretName = `webhook-secret-${Date.now()}`;
             });
           }}
         >
@@ -178,6 +178,9 @@ export default function WebhookSecretTable() {
         <DialogTitle>Name Your Webhook Secret</DialogTitle>
         <DialogContent>
           <TextField
+            fullWidth
+            label="Webhook Secret Name"
+            placeholder="Enter a name for your webhook secret"
             value={newSecretName ?? ""}
             onChange={(e) => {
               setState((draft) => {
@@ -185,16 +188,24 @@ export default function WebhookSecretTable() {
               });
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && newSecretName && newSecretName.trim() !== "") {
                 e.preventDefault(); // Prevent form submission if inside a form
                 addNewSecret();
               }
             }}
+            autoFocus
+            margin="dense"
+            helperText="Choose a descriptive name for your webhook secret"
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDialog}>Cancel</Button>
-          <Button onClick={addNewSecret}>Create</Button>
+          <Button 
+            onClick={addNewSecret}
+            disabled={!newSecretName || newSecretName.trim() === ""}
+          >
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
     </>

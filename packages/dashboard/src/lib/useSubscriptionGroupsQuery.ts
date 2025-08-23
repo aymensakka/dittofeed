@@ -4,7 +4,6 @@ import {
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -14,6 +13,7 @@ import {
 
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
+import axiosInstance from "./axiosInstance";
 
 export const SUBSCRIPTION_GROUPS_QUERY_KEY = "subscriptionGroups";
 
@@ -47,7 +47,7 @@ export function useSubscriptionGroupsQuery<
     queryKey,
     queryFn: async (): Promise<GetSubscriptionGroupsResponse> => {
       try {
-        const response = await axios.get(`${baseApiUrl}/subscription-groups`, {
+        const response = await axiosInstance.get(`${baseApiUrl}/subscription-groups`, {
           params: {
             ...params,
             workspaceId,

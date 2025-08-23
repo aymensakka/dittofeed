@@ -1,9 +1,10 @@
 import {
+
   useQuery,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -61,7 +62,7 @@ export function useUsersCountQuery(
       ...params,
     };
 
-    const response = await axios.post<GetUsersCountResponse>(
+    const response = await axiosInstance.post<GetUsersCountResponse>(
       `${baseApiUrl}/users/count`,
       requestParams,
       {

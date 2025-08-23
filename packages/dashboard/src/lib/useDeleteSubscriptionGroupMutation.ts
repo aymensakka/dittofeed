@@ -4,12 +4,13 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus,
   DeleteSubscriptionGroupRequest,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 import { SUBSCRIPTION_GROUPS_QUERY_KEY } from "./useSubscriptionGroupsQuery";
@@ -34,7 +35,7 @@ export function useDeleteSubscriptionGroupMutation(
     }
     const workspaceId = workspace.value.id;
 
-    await axios.delete(`${baseApiUrl}/subscription-groups`, {
+    await axiosInstance.delete(`${baseApiUrl}/subscription-groups`, {
       data: {
         workspaceId,
         id,

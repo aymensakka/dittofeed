@@ -24,7 +24,8 @@ import {
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "../lib/axiosInstance";
 import { getAdminApiKeys } from "backend-lib/src/adminApiKeys";
 import { getOrCreateWriteKey, getWriteKeys } from "backend-lib/src/auth";
 import { HUBSPOT_INTEGRATION } from "backend-lib/src/constants";
@@ -523,7 +524,7 @@ function SegmentIoConfig() {
     queryFn: async () => {
       if (!workspaceId) return null;
 
-      const response = await axios.get(
+      const response = await axiosInstance.get(
         `${apiBase}/api/settings/data-sources?workspaceId=${workspaceId}`,
       );
 
@@ -569,7 +570,7 @@ function SegmentIoConfig() {
         },
       };
 
-      return axios.put(`${apiBase}/api/settings/data-sources`, body);
+      return axiosInstance.put(`${apiBase}/api/settings/data-sources`, body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -598,7 +599,7 @@ function SegmentIoConfig() {
     mutationFn: async () => {
       if (!workspaceId) return null;
 
-      return axios.delete(
+      return axiosInstance.delete(
         `${apiBase}/api/settings/data-sources?workspaceId=${workspaceId}&type=${DataSourceVariantType.SegmentIO}`,
       );
     },
@@ -1743,7 +1744,7 @@ function HubspotIntegration() {
             sm: "end",
           },
         }}
-        href={`https://app.hubspot.com/oauth/authorize?client_id=9128468e-b771-4bab-b301-21b479213975&redirect_uri=${dashboardUrl}/dashboard/oauth2/callback/hubspot&scope=timeline%20sales-email-read%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.companies.write%20crm.objects.companies.read%20crm.objects.owners.read%20crm.lists.write%20crm.lists.read`}
+        href={`https://app.hubspot.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID || process.env.HUBSPOT_CLIENT_ID}&redirect_uri=${dashboardUrl}/dashboard/oauth2/callback/hubspot&scope=timeline%20sales-email-read%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.companies.write%20crm.objects.companies.read%20crm.objects.owners.read%20crm.lists.write%20crm.lists.read`}
       >
         Connect Hubspot
       </Button>

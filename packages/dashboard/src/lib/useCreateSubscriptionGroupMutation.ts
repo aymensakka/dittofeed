@@ -1,9 +1,10 @@
 import {
+
   useMutation,
   UseMutationOptions,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import {
   CompletionStatus,
   SavedSubscriptionGroupResource,
@@ -54,7 +55,7 @@ export function useCreateSubscriptionGroupMutation(
       type: createData.type ?? SubscriptionGroupType.OptOut,
     };
 
-    const response = await axios.put<SavedSubscriptionGroupResource>(
+    const response = await axiosInstance.put<SavedSubscriptionGroupResource>(
       `${baseApiUrl}/subscription-groups`,
       requestData,
       { headers: authHeaders },

@@ -39,6 +39,7 @@ DROP TYPE IF EXISTS "DBCompletionStatus" CASCADE;
 DROP TYPE IF EXISTS "DBResourceType" CASCADE;
 DROP TYPE IF EXISTS "DBRoleType" CASCADE;
 DROP TYPE IF EXISTS "DBSubscriptionGroupType" CASCADE;
+DROP TYPE IF EXISTS "DBWorkspaceOccupantType" CASCADE;
 DROP TYPE IF EXISTS "WorkspaceStatus" CASCADE;
 DROP TYPE IF EXISTS "WorkspaceType" CASCADE;
 
@@ -50,6 +51,7 @@ CREATE TYPE "DBCompletionStatus" AS ENUM ('NotStarted', 'InProgress', 'Successfu
 CREATE TYPE "DBResourceType" AS ENUM ('Declarative', 'Internal');
 CREATE TYPE "DBRoleType" AS ENUM ('Admin', 'WorkspaceManager', 'Author', 'Viewer');
 CREATE TYPE "DBSubscriptionGroupType" AS ENUM ('OptIn', 'OptOut');
+CREATE TYPE "DBWorkspaceOccupantType" AS ENUM ('WorkspaceMember', 'ChildWorkspaceOccupant');
 CREATE TYPE "WorkspaceStatus" AS ENUM ('Active', 'Tombstoned', 'Paused');
 CREATE TYPE "WorkspaceType" AS ENUM ('Root', 'Child', 'Parent');
 
@@ -66,13 +68,15 @@ CREATE TABLE IF NOT EXISTS "Workspace" (
     "tenantId" TEXT
 );
 
--- Create WorkspaceMember table
+-- Create WorkspaceMember table (updated for OAuth support)
 CREATE TABLE IF NOT EXISTS "WorkspaceMember" (
     "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    "workspaceId" UUID NOT NULL,
+    "workspaceId" UUID,
     "email" TEXT NOT NULL,
-    "role" "DBRoleType" DEFAULT 'Author' NOT NULL,
     "emailVerified" BOOLEAN DEFAULT false NOT NULL,
+    "name" TEXT,
+    "nickname" TEXT,
+    "lastWorkspaceId" UUID,
     "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
     "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -111,6 +115,10 @@ CREATE TABLE IF NOT EXISTS "Segment" (
     "resourceType" "DBResourceType" DEFAULT 'Declarative' NOT NULL
 );
 
+-- Add unique constraint on Segment table for workspaceId and name
+CREATE UNIQUE INDEX IF NOT EXISTS "Segment_workspaceId_name_unique" 
+ON "Segment" ("workspaceId", "name");
+
 -- Create MessageTemplate table
 CREATE TABLE IF NOT EXISTS "MessageTemplate" (
     "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -128,7 +136,6 @@ CREATE TABLE IF NOT EXISTS "MessageTemplate" (
 CREATE TABLE IF NOT EXISTS "WriteKey" (
     "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "workspaceId" UUID NOT NULL,
-    "name" TEXT NOT NULL,
     "secretId" UUID NOT NULL,
     "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
     "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -204,22 +211,71 @@ CREATE TABLE IF NOT EXISTS "ComputedProperty" (
     "exampleValue" TEXT
 );
 
+-- Create WorkspaceMemberRole table for OAuth role-based access control
+CREATE TABLE IF NOT EXISTS "WorkspaceMemberRole" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "workspaceId" UUID NOT NULL,
+    "workspaceMemberId" UUID NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'Viewer',
+    "resourceType" TEXT,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Create WorkspaceMembeAccount table for OAuth provider accounts
+CREATE TABLE IF NOT EXISTS "WorkspaceMembeAccount" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "workspaceMemberId" UUID NOT NULL,
+    "provider" TEXT NOT NULL,
+    "providerAccountId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Create AdminApiKey table for multi-tenant admin API keys
+CREATE TABLE IF NOT EXISTS "AdminApiKey" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "workspaceId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "secretId" UUID NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Create WorkspaceOccupantSetting table for multi-tenant workspace member settings
+CREATE TABLE IF NOT EXISTS "WorkspaceOccupantSetting" (
+    "workspaceId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "workspaceOccupantId" TEXT NOT NULL,
+    "occupantType" "DBWorkspaceOccupantType" NOT NULL,
+    "config" JSONB,
+    "secretId" UUID,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
 -- Create indexes if they don't exist
 CREATE UNIQUE INDEX IF NOT EXISTS "Workspace_name_key" ON "Workspace"("name");
 CREATE INDEX IF NOT EXISTS "Workspace_parentWorkspaceId_idx" ON "Workspace"("parentWorkspaceId");
 CREATE INDEX IF NOT EXISTS "Workspace_tenantId_idx" ON "Workspace"("tenantId");
-CREATE UNIQUE INDEX IF NOT EXISTS "WorkspaceMember_workspaceId_email_key" ON "WorkspaceMember"("workspaceId", "email");
+CREATE INDEX IF NOT EXISTS "Workspace_domain_idx" ON "Workspace"("domain");
+CREATE INDEX IF NOT EXISTS "Workspace_externalId_idx" ON "Workspace"("externalId");
+CREATE UNIQUE INDEX IF NOT EXISTS "WorkspaceMember_email_key" ON "WorkspaceMember"("email");
 CREATE UNIQUE INDEX IF NOT EXISTS "Secret_workspaceId_name_key" ON "Secret"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "UserProperty_workspaceId_name_key" ON "UserProperty"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "Segment_workspaceId_name_key" ON "Segment"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "MessageTemplate_workspaceId_name_key" ON "MessageTemplate"("workspaceId", "name");
-CREATE UNIQUE INDEX IF NOT EXISTS "WriteKey_workspaceId_name_key" ON "WriteKey"("workspaceId", "name");
+CREATE UNIQUE INDEX IF NOT EXISTS "WriteKey_workspaceId_secretId_key" ON "WriteKey"("workspaceId", "secretId");
 CREATE UNIQUE INDEX IF NOT EXISTS "EmailProvider_workspaceId_type_key" ON "EmailProvider"("workspaceId", "type");
 CREATE UNIQUE INDEX IF NOT EXISTS "DefaultEmailProvider_workspaceId_key" ON "DefaultEmailProvider"("workspaceId");
 CREATE UNIQUE INDEX IF NOT EXISTS "Journey_workspaceId_name_key" ON "Journey"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "SubscriptionGroup_workspaceId_name_key" ON "SubscriptionGroup"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "ComputedProperty_workspaceId_name_key" ON "ComputedProperty"("workspaceId", "name");
 CREATE UNIQUE INDEX IF NOT EXISTS "AuthProvider_workspaceId_type_key" ON "AuthProvider"("workspaceId", "type");
+CREATE UNIQUE INDEX IF NOT EXISTS "WorkspaceMemberRole_workspaceId_workspaceMemberId_key" ON "WorkspaceMemberRole"("workspaceId", "workspaceMemberId");
+CREATE UNIQUE INDEX IF NOT EXISTS "WorkspaceMembeAccount_provider_providerAccountId_key" ON "WorkspaceMembeAccount"("provider", "providerAccountId");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdminApiKey_workspaceId_name_key" ON "AdminApiKey"("workspaceId", "name");
+CREATE UNIQUE INDEX IF NOT EXISTS "WorkspaceOccupantSetting_workspaceId_occupantId_name_key" ON "WorkspaceOccupantSetting"("workspaceId", "workspaceOccupantId", "name");
 
 -- Add foreign key constraints if they don't exist
 DO $$ 
@@ -232,6 +288,36 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceMember_workspaceId_fkey') THEN
         ALTER TABLE "WorkspaceMember" ADD CONSTRAINT "WorkspaceMember_workspaceId_fkey" 
         FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceMember_lastWorkspaceId_fkey') THEN
+        ALTER TABLE "WorkspaceMember" ADD CONSTRAINT "WorkspaceMember_lastWorkspaceId_fkey" 
+        FOREIGN KEY ("lastWorkspaceId") REFERENCES "Workspace"("id") ON DELETE SET NULL;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceMemberRole_workspaceId_fkey') THEN
+        ALTER TABLE "WorkspaceMemberRole" ADD CONSTRAINT "WorkspaceMemberRole_workspaceId_fkey" 
+        FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceMemberRole_workspaceMemberId_fkey') THEN
+        ALTER TABLE "WorkspaceMemberRole" ADD CONSTRAINT "WorkspaceMemberRole_workspaceMemberId_fkey" 
+        FOREIGN KEY ("workspaceMemberId") REFERENCES "WorkspaceMember"("id") ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceMembeAccount_workspaceMemberId_fkey') THEN
+        ALTER TABLE "WorkspaceMembeAccount" ADD CONSTRAINT "WorkspaceMembeAccount_workspaceMemberId_fkey" 
+        FOREIGN KEY ("workspaceMemberId") REFERENCES "WorkspaceMember"("id") ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AdminApiKey_workspaceId_fkey') THEN
+        ALTER TABLE "AdminApiKey" ADD CONSTRAINT "AdminApiKey_workspaceId_fkey" 
+        FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AdminApiKey_secretId_fkey') THEN
+        ALTER TABLE "AdminApiKey" ADD CONSTRAINT "AdminApiKey_secretId_fkey" 
+        FOREIGN KEY ("secretId") REFERENCES "Secret"("id") ON DELETE CASCADE;
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Secret_workspaceId_fkey') THEN
@@ -302,6 +388,16 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AuthProvider_workspaceId_fkey') THEN
         ALTER TABLE "AuthProvider" ADD CONSTRAINT "AuthProvider_workspaceId_fkey" 
         FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceOccupantSetting_workspaceId_fkey') THEN
+        ALTER TABLE "WorkspaceOccupantSetting" ADD CONSTRAINT "WorkspaceOccupantSetting_workspaceId_fkey" 
+        FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'WorkspaceOccupantSetting_secretId_fkey') THEN
+        ALTER TABLE "WorkspaceOccupantSetting" ADD CONSTRAINT "WorkspaceOccupantSetting_secretId_fkey" 
+        FOREIGN KEY ("secretId") REFERENCES "Secret"("id") ON DELETE SET NULL;
     END IF;
 END $$;
 

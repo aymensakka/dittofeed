@@ -1,9 +1,10 @@
 import {
+
   useQuery,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -41,7 +42,7 @@ export function useBroadcastsQuery<TData = GetBroadcastsResponse>(
     queryKey,
     queryFn: async (): Promise<GetBroadcastsResponse> => {
       try {
-        const response = await axios.get(`${baseApiUrl}/broadcasts`, {
+        const response = await axiosInstance.get(`${baseApiUrl}/broadcasts`, {
           params: {
             ...params,
             workspaceId,

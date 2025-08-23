@@ -3,7 +3,7 @@ import {
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -54,7 +54,7 @@ export function useUsersQuery(
       ...params,
     };
 
-    const response = await axios.post<GetUsersResponse>(
+    const response = await axiosInstance.post<GetUsersResponse>(
       `${baseApiUrl}/users`,
       requestParams,
       {

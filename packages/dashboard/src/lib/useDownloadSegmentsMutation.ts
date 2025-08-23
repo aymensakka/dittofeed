@@ -3,7 +3,8 @@ import {
   UseMutationOptions,
   UseMutationResult,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "./axiosInstance";
 import { CompletionStatus } from "isomorphic-lib/src/types";
 
 import { useAppStorePick } from "./appStore";
@@ -31,7 +32,7 @@ export function useDownloadSegmentsMutation(
     }
     const workspaceId = workspace.value.id;
 
-    const response = await axios.get(`${baseApiUrl}/segments/download`, {
+    const response = await axiosInstance.get(`${baseApiUrl}/segments/download`, {
       params: {
         workspaceId,
       },

@@ -1,9 +1,10 @@
 import {
+
   useQuery,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { schemaValidateWithErr } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
@@ -41,7 +42,7 @@ export function usePropertiesQuery<TData = GetPropertiesResponse>(
   const queryResult = useQuery<GetPropertiesResponse, Error, TData>({
     queryKey,
     queryFn: async (): Promise<GetPropertiesResponse> => {
-      const response = await axios.get(`${baseApiUrl}/events/properties`, {
+      const response = await axiosInstance.get(`${baseApiUrl}/events/properties`, {
         params: {
           ...params,
           workspaceId,

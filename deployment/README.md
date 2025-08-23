@@ -252,6 +252,41 @@ git checkout v1.2.3
 
 The bootstrap scripts handle database initialization, workspace creation, OAuth setup, and optionally building the dashboard image with multi-tenant authentication.
 
+#### OAuth Setup
+
+For OAuth authentication with Google:
+
+1. **Configure Google OAuth:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create OAuth 2.0 credentials
+   - Add authorized redirect URIs:
+     - Local: `http://localhost:3001/api/public/auth/oauth2/callback/google`
+     - Production: `https://your-api-domain.com/api/public/auth/oauth2/callback/google`
+
+2. **Update Database Schema:**
+   ```bash
+   # For new installations
+   ./deployment/init-database.sh
+   
+   # For existing installations (migration)
+   psql -U dittofeed -d dittofeed -f deployment/oauth-migration.sql
+   ```
+
+3. **Set Environment Variables:**
+   ```bash
+   # In Coolify or docker-compose.yml
+   AUTH_MODE=multi-tenant
+   AUTH_PROVIDER=google
+   GOOGLE_CLIENT_ID=your-client-id
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   JWT_SECRET=your-jwt-secret-min-32-chars
+   SECRET_KEY=your-session-secret
+   ```
+
+4. **See detailed OAuth documentation:**
+   - [OAuth Setup Guide](./OAUTH_SETUP.md) - Complete OAuth configuration guide
+   - [OAuth Migration Script](./oauth-migration.sql) - Database migration for OAuth
+
 #### Available Bootstrap Scripts
 
 1. **manual-bootstrap.sh** - Main bootstrap script that handles:
@@ -326,16 +361,38 @@ Since Coolify recreates containers with new IPs on redeploy, the Cloudflare tunn
 
 ### Environment Variables
 
-Key environment variables for multi-tenant mode:
+Key environment variables for multi-tenant mode with OAuth:
 - `AUTH_MODE=multi-tenant`
+- `AUTH_PROVIDER=google`
 - `NEXT_PUBLIC_AUTH_MODE=multi-tenant`
+- `NEXT_PUBLIC_ENABLE_MULTITENANCY=true`
 - `WORKSPACE_ISOLATION_ENABLED=true`
 - `BOOTSTRAP_WORKSPACE_NAME=caramel`
 - `DOMAIN=caramelme.com`
 
+OAuth-specific variables:
+- `GOOGLE_CLIENT_ID=your-google-client-id`
+- `GOOGLE_CLIENT_SECRET=your-google-client-secret`
+- `JWT_SECRET=your-jwt-secret-min-32-chars`
+- `SECRET_KEY=your-session-secret-key`
+- `NEXTAUTH_URL=https://communication-dashboard.caramelme.com/dashboard`
+- `NEXTAUTH_SECRET=your-nextauth-secret`
+
 ### Common Multi-Tenant Issues
 
-1. **404 on Dashboard (All Routes):**
+1. **OAuth Authentication Issues:**
+   - **"Authentication failed" errors:**
+     - Ensure user is in WorkspaceMember table with proper workspace association
+     - Check WorkspaceMemberRole table has role for the user
+     - Verify WorkspaceMembeAccount has OAuth provider ID
+   - **"No organization" error:**
+     - User is not assigned to any workspace
+     - Admin must add user via permissions API or database
+   - **Session persistence issues:**
+     - Check JWT_SECRET and SECRET_KEY are set correctly
+     - Verify cookie domain settings match deployment
+
+2. **404 on Dashboard (All Routes):**
    - **Root Cause**: Conflicting redirect in next.config.js (two redirects for '/')
    - **Quick Fix**: Run `./deployment/quick-fix-remote-404.sh` on server
    - **Permanent Fix**: 
@@ -351,18 +408,26 @@ Key environment variables for multi-tenant mode:
      - Wrong auth mode (must be `multi-tenant`)
      - Run `manual-bootstrap.sh` to create workspace
 
-2. **Bad Gateway After Redeploy:**
+3. **Bad Gateway After Redeploy:**
    - Container IPs changed
    - Run `update-cf-from-host.sh`
    - Check tunnel status with `debug-cloudflared.sh`
 
-3. **Workspace Not Found:**
+4. **Workspace Not Found:**
    ```sql
    -- Check workspace in database
    docker exec $(docker ps -q -f name=postgres) psql -U dittofeed -d dittofeed -c "SELECT name, domain FROM \"Workspace\";"
    ```
 
-4. **Dashboard Returns 404 for All Routes:**
+5. **OAuth Database Errors:**
+   - **"null value in column providerAccountId":**
+     - Run `oauth-migration.sql` to update schema
+     - Seed proper OAuth data for existing users
+   - **Missing OAuth tables:**
+     - Run `init-database.sh` for fresh setup
+     - Or run `oauth-migration.sql` for existing deployments
+
+6. **Dashboard Returns 404 for All Routes:**
    - **Diagnosis**: Run `./deployment/diagnose-404.sh`
    - **Environment Check**: Verify `NEXT_PUBLIC_AUTH_MODE=multi-tenant`
    - **Next.js Config**: Check for conflicting redirects in next.config.js

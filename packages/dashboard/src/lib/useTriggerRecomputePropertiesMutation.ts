@@ -1,9 +1,10 @@
 import {
+
   useMutation,
   UseMutationOptions,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import { schemaValidate } from "isomorphic-lib/src/resultHandling/schemaValidation";
 import {
   CompletionStatus,
@@ -39,7 +40,7 @@ export function useTriggerRecomputePropertiesMutation(
     }
 
     const { id: workspaceId } = workspace.value;
-    const response = await axios.post(
+    const response = await axiosInstance.post(
       `${baseApiUrl}/computed-properties/trigger-recompute`,
       {
         ...params,

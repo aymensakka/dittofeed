@@ -701,14 +701,14 @@ export const workspaceMember = pgTable(
   "WorkspaceMember",
   {
     id: uuid().primaryKey().defaultRandom().notNull(),
-    email: text(),
+    workspaceId: uuid().notNull(),
+    email: text().notNull(),
     createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp({ precision: 3, mode: "date" })
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    emailVerified: boolean().default(false).notNull(),
-    image: text(),
+    emailVerified: boolean().default(false),
     name: text(),
     nickname: text(),
     lastWorkspaceId: uuid(),
@@ -718,6 +718,13 @@ export const workspaceMember = pgTable(
       "btree",
       table.email.asc().nullsLast().op("text_ops"),
     ),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "WorkspaceMember_workspaceId_fkey",
+    })
+      .onUpdate("cascade")
+      .onDelete("cascade"),
     foreignKey({
       columns: [table.lastWorkspaceId],
       foreignColumns: [workspace.id],

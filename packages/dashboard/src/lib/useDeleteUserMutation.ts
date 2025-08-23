@@ -4,7 +4,8 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
+import axiosInstance from "./axiosInstance";
 import { CompletionStatus, DeleteUsersRequest } from "isomorphic-lib/src/types";
 
 import { useAppStorePick } from "./appStore";
@@ -38,7 +39,7 @@ export function useDeleteUserMutation(
       userIds,
     };
 
-    await axios.delete(`${baseApiUrl}/users/v2`, {
+    await axiosInstance.delete(`${baseApiUrl}/users/v2`, {
       params: requestData,
       headers: {
         "Content-Type": "application/json",

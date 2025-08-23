@@ -28,7 +28,7 @@ import {
   insertUserEvents,
 } from "backend-lib/src/userEvents";
 import csvParser from "csv-parser";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { FastifyInstance } from "fastify";
 import {
   SUBSRIPTION_GROUP_ID_HEADER,
@@ -286,7 +286,12 @@ export default async function subscriptionGroupsController(
     async (request, reply) => {
       const result = await db()
         .delete(schema.subscriptionGroup)
-        .where(eq(schema.subscriptionGroup.id, request.body.id))
+        .where(
+          and(
+            eq(schema.subscriptionGroup.id, request.body.id),
+            eq(schema.subscriptionGroup.workspaceId, request.body.workspaceId)
+          )
+        )
         .returning();
       if (!result.length) {
         return reply.status(404).send();

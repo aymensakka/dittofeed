@@ -85,6 +85,13 @@ const performedOption = {
   label: "Performed",
 };
 
+const performedManyOption = {
+  id: UserPropertyDefinitionType.PerformedMany,
+  group: "Track Events",
+  label: "Performed Many (Read-only)",
+  disabled: true,
+};
+
 const fileOption = {
   id: UserPropertyDefinitionType.File,
   group: "Track Events",
@@ -108,6 +115,7 @@ type UserPropertyGroupedOption = GroupedOption<UserPropertyDefinitionType>;
 const userPropertyOptions: UserPropertyGroupedOption[] = [
   traitOption,
   performedOption,
+  performedManyOption,
   fileOption,
   keyedPerformedOption,
   anyOfOption,
@@ -144,7 +152,7 @@ function getUserPropertyOption(
     case UserPropertyDefinitionType.File:
       return fileOption;
     case UserPropertyDefinitionType.PerformedMany:
-      throw new Error("Not implemented");
+      return performedManyOption;
     case UserPropertyDefinitionType.KeyedPerformed:
       return keyedPerformedOption;
     default:
@@ -207,7 +215,11 @@ function defaultUserProperty(
       throw new Error("Not implemented");
     }
     case UserPropertyDefinitionType.PerformedMany:
-      throw new Error("Not implemented");
+      // PerformedMany is read-only, created by integrations
+      return {
+        type: UserPropertyDefinitionType.PerformedMany,
+        or: [],
+      };
     case UserPropertyDefinitionType.KeyedPerformed:
       return {
         id,
@@ -985,7 +997,13 @@ function DefinitionComponent({
       );
       break;
     case UserPropertyDefinitionType.PerformedMany:
-      throw new Error("Not implemented");
+      up = (
+        <Typography sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+          This is a system-generated user property created by integrations (e.g., HubSpot Email Events).
+          It tracks multiple event types and is read-only.
+        </Typography>
+      );
+      break;
     default:
       assertUnreachable(definition);
   }

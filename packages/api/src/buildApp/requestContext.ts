@@ -27,10 +27,22 @@ export function requestToSessionValue(request: FastifyRequest):
 }
 
 export function getRequestContextFastify(request: FastifyRequest) {
-  const headers = {
+  const { authMode } = backendConfig();
+  
+  // In multi-tenant mode, include cookies in headers for authentication
+  let headers = {
     ...request.headers,
     ...requestToSessionValue(request),
   };
+  
+  if (authMode === "multi-tenant" && request.headers.cookie) {
+    // Parse cookies and add them to headers for getRequestContext
+    headers = {
+      ...headers,
+      cookie: request.headers.cookie,
+    };
+  }
+  
   const { user: profile } = request as { user?: OpenIdProfile };
   return getRequestContext(headers, profile);
 }

@@ -98,6 +98,7 @@ const BaseRawConfigProps = {
   ),
   secretKey: Type.Optional(Type.String()),
   password: Type.Optional(Type.String()),
+  jwtSecret: Type.Optional(Type.String()),
   computePropertiesWorkflowTaskTimeout: Type.Optional(
     Type.String({ format: "naturalNumber" }),
   ),
@@ -276,6 +277,7 @@ export type Config = Overwrite<
     readQueryPageSize: number;
     sessionCookieSecure: boolean;
     signoutRedirectUrl: string;
+    jwtSecret?: string;
     startOtel: boolean;
     temporalAddress: string;
     temporalNamespace: string;
@@ -296,6 +298,7 @@ export type Config = Overwrite<
 
 export const SECRETS = new Set<keyof Config>([
   "databasePassword",
+  "jwtSecret",
   "clickhousePassword",
   "kafkaPassword",
   "hubspotClientSecret",

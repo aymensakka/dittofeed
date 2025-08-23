@@ -1,5 +1,6 @@
 import { Static, Type } from "@sinclair/typebox";
 import axios from "axios";
+
 import backendConfig from "backend-lib/src/config";
 import {
   EMAIL_EVENTS_UP_NAME,

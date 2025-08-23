@@ -1,9 +1,10 @@
 import {
+
   useMutation,
   UseMutationOptions,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 import {
   BroadcastResourceV2,
   CompletionStatus,
@@ -51,7 +52,7 @@ export function useCreateBroadcastMutation(
       ...createData,
     };
 
-    const response = await axios.put<BroadcastResourceV2>(
+    const response = await axiosInstance.put<BroadcastResourceV2>(
       `${baseApiUrl}/broadcasts/v2`,
       requestData,
       { headers: authHeaders },

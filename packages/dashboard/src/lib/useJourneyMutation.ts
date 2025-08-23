@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+
+import axiosInstance from "./axiosInstance";
 import {
   CompletionStatus,
   SavedJourneyResource,
@@ -32,7 +33,7 @@ export function useJourneyMutation(journeyId: string) {
       id: journeyId,
     };
 
-    const response = await axios.put<SavedJourneyResource>(
+    const response = await axiosInstance.put<SavedJourneyResource>(
       `${baseApiUrl}/journeys`,
       requestData,
       { headers: authHeaders },

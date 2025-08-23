@@ -4,12 +4,13 @@ import {
   UseMutationResult,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import {
   CompletionStatus,
   DeleteUserPropertyRequest,
 } from "isomorphic-lib/src/types";
 
+import axiosInstance from "./axiosInstance";
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";
 import { USER_PROPERTIES_QUERY_KEY } from "./useUserPropertiesQuery";
@@ -30,7 +31,7 @@ export function useDeleteUserPropertyMutation(
     }
     const workspaceId = workspace.value.id;
 
-    await axios.delete(`${baseApiUrl}/user-properties`, {
+    await axiosInstance.delete(`${baseApiUrl}/user-properties`, {
       data: {
         workspaceId,
         id,
