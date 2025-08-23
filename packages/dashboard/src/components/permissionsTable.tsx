@@ -157,6 +157,9 @@ function PermissionDialog({
               onChange={(e) => setRole(e.target.value as Role)}
             >
               <MenuItem value={RoleEnum.Admin}>Admin</MenuItem>
+              <MenuItem value={RoleEnum.WorkspaceManager}>Workspace Manager</MenuItem>
+              <MenuItem value={RoleEnum.Author}>Author</MenuItem>
+              <MenuItem value={RoleEnum.Viewer}>Viewer</MenuItem>
             </Select>
           </FormControl>
         </Box>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dittofeed Embedded Components Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .info {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .info h2 {
+            margin-top: 0;
+            color: #555;
+        }
+        .info code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .step h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .iframe-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .iframe-header {
+            background: #6366f1;
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            display: block;
+        }
+        .controls {
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .control-group input:focus, .control-group select:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #5558e3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .error {
+            color: #f44336;
+            margin-top: 10px;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+        }
+        .success {
+            color: #4CAF50;
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+        .token-display {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Dittofeed Embedded Components Test</h1>
+        
+        <div class="info">
+            <h2>How to Use This Test Page</h2>
+            
+            <div class="step">
+                <h3>Step 1: Create a Child Workspace (if needed)</h3>
+                <p>First, ensure you have a child workspace. You can create one using the Parent Admin API:</p>
+                <code>
+                    curl -X PUT http://localhost:3001/api-l/admin/workspaces/child \
+                    -H "Authorization: Bearer YOUR_PARENT_ADMIN_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d '{"name": "Test Child Workspace", "externalId": "test-123"}'
+                </code>
+            </div>
+            
+            <div class="step">
+                <h3>Step 2: Get a Session Token</h3>
+                <p>Use your workspace's write key to create a session token:</p>
+                <code>
+                    curl -X POST http://localhost:3001/api-l/sessions \
+                    -H "Authorization: Bearer YOUR_WRITE_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d '{"workspaceId": "YOUR_WORKSPACE_ID"}'
+                </code>
+            </div>
+            
+            <div class="step">
+                <h3>Step 3: Enter Details Below</h3>
+                <p>Enter your workspace ID and session token, then select a component to embed.</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <h2>Configuration</h2>
+            
+            <div class="control-group">
+                <label for="workspaceId">Workspace ID:</label>
+                <input type="text" id="workspaceId" placeholder="e.g., 6eed2156-606a-4666-925e-7f89adddd743">
+            </div>
+            
+            <div class="control-group">
+                <label for="token">Session Token:</label>
+                <input type="text" id="token" placeholder="Paste your session token here">
+            </div>
+            
+            <div class="control-group">
+                <label for="component">Component to Embed:</label>
+                <select id="component">
+                    <option value="">Select a component...</option>
+                    <optgroup label="Tables">
+                        <option value="journeys">Journeys Table</option>
+                        <option value="broadcasts">Broadcasts Table</option>
+                        <option value="templates">Templates Table</option>
+                        <option value="segments">Segments Table</option>
+                        <option value="deliveries/v2">Deliveries Table</option>
+                    </optgroup>
+                    <optgroup label="Editors">
+                        <option value="journeys/v2">Journey Editor</option>
+                        <option value="broadcasts/v2">Broadcast Editor</option>
+                        <option value="segments/v1">Segment Editor</option>
+                        <option value="templates/email">Email Template Editor</option>
+                        <option value="templates/sms">SMS Template Editor</option>
+                    </optgroup>
+                </select>
+            </div>
+            
+            <div class="control-group" id="idGroup" style="display: none;">
+                <label for="resourceId">Resource ID (for editors):</label>
+                <input type="text" id="resourceId" placeholder="e.g., journey-id or template-id">
+            </div>
+            
+            <button onclick="loadComponent()">Load Component</button>
+            <button onclick="testSession()">Test Session</button>
+            
+            <div id="status"></div>
+        </div>
+
+        <div class="iframe-container" id="iframeContainer" style="display: none;">
+            <div class="iframe-header" id="iframeHeader">Component Preview</div>
+            <iframe id="embeddedFrame"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Show/hide resource ID field based on component selection
+        document.getElementById('component').addEventListener('change', function(e) {
+            const needsId = ['journeys/v2', 'broadcasts/v2', 'segments/v1', 'templates/email', 'templates/sms'].includes(e.target.value);
+            document.getElementById('idGroup').style.display = needsId ? 'block' : 'none';
+        });
+
+        function loadComponent() {
+            const workspaceId = document.getElementById('workspaceId').value;
+            const token = document.getElementById('token').value;
+            const component = document.getElementById('component').value;
+            const resourceId = document.getElementById('resourceId').value;
+            
+            if (!workspaceId || !token || !component) {
+                showError('Please fill in all required fields');
+                return;
+            }
+            
+            // Build the URL
+            let url = `http://localhost:3000/dashboard-l/embedded/${component}?token=${encodeURIComponent(token)}&workspaceId=${encodeURIComponent(workspaceId)}`;
+            
+            // Add resource ID if needed
+            if (resourceId && ['journeys/v2', 'broadcasts/v2', 'segments/v1', 'templates/email', 'templates/sms'].includes(component)) {
+                url += `&id=${encodeURIComponent(resourceId)}`;
+            }
+            
+            // Load the iframe
+            const iframe = document.getElementById('embeddedFrame');
+            iframe.src = url;
+            
+            // Update header
+            const componentName = component.split('/')[0];
+            document.getElementById('iframeHeader').textContent = `Embedded ${componentName.charAt(0).toUpperCase() + componentName.slice(1)}`;
+            
+            // Show iframe container
+            document.getElementById('iframeContainer').style.display = 'block';
+            
+            showSuccess('Component loaded! Check the iframe below.');
+            
+            // Listen for messages from iframe
+            window.addEventListener('message', handleIframeMessage);
+        }
+        
+        function testSession() {
+            const token = document.getElementById('token').value;
+            
+            if (!token) {
+                showError('Please enter a session token');
+                return;
+            }
+            
+            fetch('http://localhost:3001/api-l/sessions/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token }),
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.valid) {
+                    showSuccess(`Session is valid! Workspace ID: ${data.workspaceId}, Expires: ${new Date(data.expiresAt).toLocaleString()}`);
+                } else {
+                    showError('Session token is invalid or expired');
+                }
+            })
+            .catch(err => {
+                showError('Failed to verify session: ' + err.message);
+            });
+        }
+        
+        function handleIframeMessage(event) {
+            // Only accept messages from our domain
+            if (event.origin !== 'http://localhost:3000') return;
+            
+            console.log('Message from iframe:', event.data);
+            
+            if (event.data.type === 'ready') {
+                console.log('Iframe is ready, workspace:', event.data.workspaceId);
+            } else if (event.data.type === 'height') {
+                // Adjust iframe height if needed
+                document.getElementById('embeddedFrame').style.height = event.data.height + 'px';
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('status').innerHTML = `<div class="error">${message}</div>`;
+        }
+        
+        function showSuccess(message) {
+            document.getElementById('status').innerHTML = `<div class="success">${message}</div>`;
+        }
+        
+        // Pre-fill for testing (remove in production)
+        document.getElementById('workspaceId').value = localStorage.getItem('test-workspace-id') || '';
+        document.getElementById('token').value = localStorage.getItem('test-token') || '';
+        
+        // Save values for convenience
+        document.getElementById('workspaceId').addEventListener('change', (e) => {
+            localStorage.setItem('test-workspace-id', e.target.value);
+        });
+        document.getElementById('token').addEventListener('change', (e) => {
+            localStorage.setItem('test-token', e.target.value);
+        });
+    </script>
+</body>
+</html>

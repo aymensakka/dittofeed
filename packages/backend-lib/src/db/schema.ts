@@ -1169,3 +1169,86 @@ export const tenantMetrics = pgTable(
       .onDelete("cascade"),
   ],
 );
+
+// Embedded Session tables
+export const embeddedSession = pgTable(
+  "EmbeddedSession",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    sessionId: text().notNull().unique(),
+    workspaceId: uuid().notNull(),
+    refreshToken: text().notNull().unique(),
+    refreshTokenFamily: uuid().notNull(),
+    accessTokenHash: text().notNull(),
+    previousAccessTokenHash: text(),
+    createdAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+    lastRefreshedAt: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+    expiresAt: timestamp({ precision: 3, mode: "date" }).notNull(),
+    refreshExpiresAt: timestamp({ precision: 3, mode: "date" }).notNull(),
+    revokedAt: timestamp({ precision: 3, mode: "date" }),
+    revocationReason: text(),
+    metadata: jsonb(),
+    refreshCount: integer().default(0).notNull(),
+    ipAddress: text(),
+    userAgent: text(),
+    fingerprint: text(),
+  },
+  (table) => [
+    index("idx_embedded_session_workspace").on(table.workspaceId),
+    index("idx_embedded_session_refresh_token").on(table.refreshToken),
+    index("idx_embedded_session_session_id").on(table.sessionId),
+    index("idx_embedded_session_expires_at").on(table.expiresAt),
+    index("idx_embedded_session_refresh_token_family").on(table.refreshTokenFamily),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "EmbeddedSession_workspaceId_fkey",
+    })
+      .onUpdate("cascade")
+      .onDelete("cascade"),
+  ],
+);
+
+export const embeddedSessionAudit = pgTable(
+  "EmbeddedSessionAudit",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    sessionId: text().notNull(),
+    workspaceId: uuid().notNull(),
+    action: text().notNull(),
+    timestamp: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+    ipAddress: text(),
+    userAgent: text(),
+    metadata: jsonb(),
+    success: boolean().default(true).notNull(),
+    failureReason: text(),
+  },
+  (table) => [
+    index("idx_embedded_session_audit_session_id").on(table.sessionId),
+    index("idx_embedded_session_audit_workspace").on(table.workspaceId),
+    index("idx_embedded_session_audit_timestamp").on(table.timestamp),
+    index("idx_embedded_session_audit_action").on(table.action),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspace.id],
+      name: "EmbeddedSessionAudit_workspaceId_fkey",
+    })
+      .onUpdate("cascade")
+      .onDelete("cascade"),
+  ],
+);
+
+export const embeddedSessionRateLimit = pgTable(
+  "EmbeddedSessionRateLimit",
+  {
+    id: uuid().primaryKey().defaultRandom().notNull(),
+    key: text().notNull(),
+    type: text().notNull(),
+    count: integer().default(1).notNull(),
+    windowStart: timestamp({ precision: 3, mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique().on(table.key, table.type, table.windowStart),
+    index("idx_embedded_session_rate_limit_window").on(table.windowStart),
+  ],
+);

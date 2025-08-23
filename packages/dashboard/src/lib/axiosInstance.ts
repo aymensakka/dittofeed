@@ -1,8 +1,16 @@
 import axios, { AxiosInstance } from "axios";
 
-// Helper function to get JWT from cookies
+// Helper function to get JWT from cookies or embedded session
 function getJwtFromCookies(): string | null {
   if (typeof document === 'undefined') return null;
+  
+  // Check for embedded session token first
+  if (typeof sessionStorage !== 'undefined') {
+    const embeddedToken = sessionStorage.getItem('embeddedToken');
+    if (embeddedToken) {
+      return embeddedToken;
+    }
+  }
   
   const cookies = document.cookie.split('; ');
   
@@ -44,6 +52,14 @@ axiosInstance.interceptors.request.use(
     const jwt = getJwtFromCookies();
     if (jwt) {
       config.headers.Authorization = `Bearer ${jwt}`;
+    }
+    
+    // Add workspace ID header for embedded sessions
+    if (typeof sessionStorage !== 'undefined') {
+      const embeddedWorkspaceId = sessionStorage.getItem('embeddedWorkspaceId');
+      if (embeddedWorkspaceId) {
+        config.headers['X-Workspace-Id'] = embeddedWorkspaceId;
+      }
     }
     
     if (process.env.NODE_ENV === "development") {
