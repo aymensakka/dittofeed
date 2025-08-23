@@ -84,6 +84,9 @@ export default function EmbeddedLayout({
         window.removeEventListener('message', handleMessage);
       };
     }
+    
+    // Return undefined for the else case
+    return undefined;
   }, [router.query, allowedOrigins]);
 
   if (isLoading) {
