@@ -7,6 +7,7 @@ import {
   GetResourcesRequest,
   GetResourcesResponse,
 } from "isomorphic-lib/src/types";
+import axiosInstance from "./axiosInstance";
 
 import { useAppStorePick } from "./appStore";
 import { useAuthHeaders, useBaseApiUrl } from "./authModeProvider";

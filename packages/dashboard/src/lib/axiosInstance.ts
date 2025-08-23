@@ -1,5 +1,4 @@
 import axios, { AxiosInstance } from "axios";
-
 // Helper function to get JWT from cookies or embedded session
 function getJwtFromCookies(): string | null {
   if (typeof document === 'undefined') return null;
