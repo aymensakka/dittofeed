@@ -1,7 +1,8 @@
 import React from "react";
 import { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import EmbeddedLayout from "../../../../components/embeddedLayout";
-import BroadcastLayoutV2 from "../../../../components/broadcasts/broadcastsLayoutV2";
+import Broadcast from "../../../../components/broadcast";
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { token, workspaceId, id } = context.query;
@@ -32,9 +33,21 @@ export default function EmbeddedBroadcastEditor({
   workspaceId, 
   broadcastId 
 }: EmbeddedBroadcastEditorProps) {
+  const router = useRouter();
+  const queryParams = router.query;
+  
   return (
     <EmbeddedLayout>
-      <BroadcastLayoutV2 />
+      <Broadcast
+        queryParams={queryParams}
+        sx={{
+          pt: 2,
+          px: 1,
+          pb: 1,
+          width: "100%",
+          height: "100%",
+        }}
+      />
     </EmbeddedLayout>
   );
 }
