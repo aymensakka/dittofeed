@@ -4,7 +4,7 @@ import { db } from "backend-lib/src/db";
 import * as schema from "backend-lib/src/db/schema";
 import { DittofeedFastifyInstance } from "backend-lib/src/types";
 import { createSigner, createVerifier } from "fast-jwt";
-import { eq, and, lt, isNull } from "drizzle-orm";
+import { eq, and, gt, isNull, or } from "drizzle-orm";
 import logger from "backend-lib/src/logger";
 import { v4 as uuidv4 } from "uuid";
 import backendConfig from "backend-lib/src/config";
@@ -168,7 +168,7 @@ async function refreshSession(
     where: and(
       eq(schema.embeddedSession.refreshToken, refreshToken),
       isNull(schema.embeddedSession.revokedAt),
-      lt(now, schema.embeddedSession.refreshExpiresAt)
+      gt(schema.embeddedSession.refreshExpiresAt, now)
     ),
   });
 
@@ -535,6 +535,3 @@ export default async function embeddedSessionsController(
     },
   );
 }
-
-// Add missing import
-import { or } from "drizzle-orm";

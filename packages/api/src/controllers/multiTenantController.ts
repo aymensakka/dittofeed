@@ -267,16 +267,17 @@ export default async function multiTenantController(fastify: FastifyInstance) {
           if (member.length > 0 && member[0]) {
             // User exists, get their last workspace
             const lastWorkspaceId = member[0].lastWorkspaceId;
-            if (lastWorkspaceId) {
+            if (lastWorkspaceId && typeof lastWorkspaceId === 'string') {
               workspaceId = lastWorkspaceId;
             }
             
             if (!workspaceId) {
               // Find any workspace this user has access to via WorkspaceMemberRole
+              const memberId = member[0].id as string;
               const memberRole = await db()
                 .select()
                 .from(schema.workspaceMemberRole)
-                .where(eq(schema.workspaceMemberRole.workspaceMemberId, member[0].id))
+                .where(eq(schema.workspaceMemberRole.workspaceMemberId, memberId))
                 .limit(1);
               
               if (memberRole.length > 0 && memberRole[0]) {
