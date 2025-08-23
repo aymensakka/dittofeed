@@ -109,7 +109,7 @@ export async function createWorkspaceMemberRole({
         lookupExisting: and(
           eq(schema.workspaceMember.email, email),
           eq(schema.workspaceMember.workspaceId, workspaceId)
-        ),
+        )!,
         values: {
           email,
           workspaceId,

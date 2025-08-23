@@ -263,7 +263,7 @@ export async function getMultiTenantRequestContext({
     if (!workspaceId) {
       // Find the first available workspace for new members
       const defaultWorkspace = await db().query.workspace.findFirst({
-        where: eq(dbWorkspace.type, WorkspaceTypeDbEnum.Root),
+        where: eq(dbWorkspace.type, WorkspaceTypeAppEnum.Root),
       });
       
       if (!defaultWorkspace) {

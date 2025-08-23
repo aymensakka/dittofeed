@@ -45,7 +45,7 @@ export async function onboardUser({
         lookupExisting: and(
           eq(dbWorkspaceMember.email, email),
           eq(dbWorkspaceMember.workspaceId, workspace.id)
-        ),
+        )!,
         values: {
           email,
           workspaceId: workspace.id,
