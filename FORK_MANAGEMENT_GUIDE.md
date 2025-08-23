@@ -11,22 +11,26 @@ This guide explains how to maintain your multi-tenant fork while incorporating u
 - OAuth integration (Google, HubSpot)
 - Row-level security for all database tables
 
-### 2. Embedded Dashboard
-- **NEW**: Iframe-embeddable dashboard components
-- Secure session management with JWT tokens
-- Refresh token mechanism for long-lived sessions
+### 2. Embedded Dashboard (Fully Implemented)
+- **✅ COMPLETE**: Iframe-embeddable dashboard components
+- **✅ COMPLETE**: Secure session management with JWT tokens (15-min access, 7-day refresh)
+- **✅ COMPLETE**: Refresh token mechanism with rotation and reuse detection
+- **✅ COMPLETE**: Session auditing and rate limiting
 - Components available for embedding:
-  - Journey Builder
-  - Broadcast Manager
-  - Segment Editor
-  - Template Editor
-  - Delivery Analytics
+  - Journey Builder (`/dashboard/dashboard-l/embedded/journeys/v2`)
+  - Broadcast Manager (`/dashboard/dashboard-l/embedded/broadcasts/v2`)
+  - Segment Editor (`/dashboard/dashboard-l/embedded/segments/v1`)
+  - Email Template Editor (`/dashboard/dashboard-l/embedded/templates/email`)
+  - SMS Template Editor (`/dashboard/dashboard-l/embedded/templates/sms`)
+  - Delivery Analytics (`/dashboard/dashboard-l/embedded/deliveries/v2`)
 
 ### 3. Enhanced Security
-- JWT-based authentication with refresh tokens
-- Token rotation and reuse detection
-- Session auditing and rate limiting
-- Workspace-scoped API access
+- JWT-based authentication with configurable secrets
+- Token rotation with automatic refresh
+- Token reuse detection (revokes entire token family)
+- Session auditing in `EmbeddedSessionAudit` table
+- Rate limiting per IP/workspace
+- Workspace-scoped API access with strict isolation
 
 ---
 
@@ -172,16 +176,20 @@ Maintain a changelog of your modifications:
 - Added workspaceId to all tables
 - Added RLS policies
 - Created workspaceOccupantSettings table
+- **NEW**: Added EmbeddedSession, EmbeddedSessionAudit, EmbeddedSessionRateLimit tables
 
 ## API Changes
-- Added JWT authentication
+- Added JWT authentication with refresh tokens
 - Added workspace context middleware
 - Modified all endpoints for workspace scoping
+- **NEW**: Added embedded session endpoints (/api-l/embedded-sessions/*)
 
 ## Frontend Changes
 - Added axios interceptors
 - Added workspace selector
 - Modified all API calls to include workspace context
+- **NEW**: Added embedded dashboard pages under /dashboard-l/embedded/*
+- **NEW**: Added EmbeddedLayout component for iframe integration
 ```
 
 ### 4. Test After Each Merge

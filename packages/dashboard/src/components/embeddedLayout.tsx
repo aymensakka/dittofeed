@@ -1,7 +1,7 @@
-import { Box, CssBaseline, ThemeProvider } from "@mui/material";
+import { Box } from "@mui/material";
 import React, { PropsWithChildren, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import theme from "../themeCustomization";
+import ThemeCustomization from "../themeCustomization";
 import createEmotionCache from "../lib/createEmotionCache";
 import { CacheProvider } from "@emotion/react";
 
@@ -29,7 +29,9 @@ export default function EmbeddedLayout({
     }
 
     // Verify the session token
-    fetch('/api-l/sessions/verify', {
+    // Try embedded-sessions endpoint first, fall back to simple sessions
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001';
+    fetch(`${apiBase}/api-l/embedded-sessions/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,8 +89,7 @@ export default function EmbeddedLayout({
   if (isLoading) {
     return (
       <CacheProvider value={clientSideEmotionCache}>
-        <ThemeProvider theme={theme()}>
-          <CssBaseline />
+        <ThemeCustomization>
           <Box
             sx={{
               display: 'flex',
@@ -100,7 +101,7 @@ export default function EmbeddedLayout({
           >
             Loading...
           </Box>
-        </ThemeProvider>
+        </ThemeCustomization>
       </CacheProvider>
     );
   }
@@ -108,8 +109,7 @@ export default function EmbeddedLayout({
   if (!isAuthenticated) {
     return (
       <CacheProvider value={clientSideEmotionCache}>
-        <ThemeProvider theme={theme()}>
-          <CssBaseline />
+        <ThemeCustomization>
           <Box
             sx={{
               display: 'flex',
@@ -122,15 +122,14 @@ export default function EmbeddedLayout({
           >
             Invalid or expired session token
           </Box>
-        </ThemeProvider>
+        </ThemeCustomization>
       </CacheProvider>
     );
   }
 
   return (
     <CacheProvider value={clientSideEmotionCache}>
-      <ThemeProvider theme={theme()}>
-        <CssBaseline />
+      <ThemeCustomization>
         <Box
           sx={{
             width: '100%',
@@ -141,7 +140,7 @@ export default function EmbeddedLayout({
         >
           {children}
         </Box>
-      </ThemeProvider>
+      </ThemeCustomization>
     </CacheProvider>
   );
 }

@@ -240,8 +240,8 @@
                 return;
             }
             
-            // Build the URL
-            let url = `http://localhost:3000/dashboard-l/embedded/${component}?token=${encodeURIComponent(token)}&workspaceId=${encodeURIComponent(workspaceId)}`;
+            // Build the URL - Note: Next.js basePath is /dashboard
+            let url = `http://localhost:3000/dashboard/dashboard-l/embedded/${component}?token=${encodeURIComponent(token)}&workspaceId=${encodeURIComponent(workspaceId)}`;
             
             // Add resource ID if needed
             if (resourceId && ['journeys/v2', 'broadcasts/v2', 'segments/v1', 'templates/email', 'templates/sms'].includes(component)) {

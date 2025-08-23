@@ -120,6 +120,23 @@ Click Deploy to Render below and follow the prompts to deploy Dittofeed on Rende
 
 ---
 
+## Multi-Tenant Fork Features
+
+This fork adds enterprise-grade multi-tenancy and embedded dashboard capabilities:
+
+### 🏢 Multi-Tenancy
+- **Workspace Hierarchy**: Parent and child workspace support with strict data isolation
+- **OAuth Integration**: Google OAuth for user authentication, HubSpot for CRM integration
+- **Role-Based Access Control**: Workspace member roles with permission management
+- **Row-Level Security**: PostgreSQL RLS for database-level tenant isolation
+
+### 🖼️ Embedded Dashboard
+- **Secure Sessions**: JWT-based authentication with 15-minute access tokens and 7-day refresh tokens
+- **Token Rotation**: Automatic token refresh with reuse detection and security auditing
+- **Embeddable Components**: Journey builder, broadcast editor, segment builder, template editors
+- **PostMessage API**: Two-way communication between parent application and embedded dashboard
+- **Complete Documentation**: See [EMBEDDED_DASHBOARD_GUIDE.md](./EMBEDDED_DASHBOARD_GUIDE.md)
+
 ## Developer-centric
 
 Beyond having industry-standard GUI tools, we focus on developer happiness with first-in-class dev-focused features:

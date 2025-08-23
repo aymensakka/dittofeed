@@ -17,18 +17,20 @@ The Dittofeed multi-tenant platform supports embedding dashboard components dire
 The following dashboard components can be embedded:
 
 #### Table Views (Read-only)
-- `/dashboard-l/embedded/journeys` - View customer journeys
-- `/dashboard-l/embedded/broadcasts` - View broadcast campaigns
-- `/dashboard-l/embedded/segments` - View audience segments
-- `/dashboard-l/embedded/templates` - View message templates
-- `/dashboard-l/embedded/deliveries/v2` - View delivery analytics
+- `/dashboard/dashboard-l/embedded/journeys` - View customer journeys
+- `/dashboard/dashboard-l/embedded/broadcasts` - View broadcast campaigns
+- `/dashboard/dashboard-l/embedded/segments` - View audience segments
+- `/dashboard/dashboard-l/embedded/templates` - View message templates
+- `/dashboard/dashboard-l/embedded/deliveries/v2` - View delivery analytics
 
 #### Editors (Interactive)
-- `/dashboard-l/embedded/journeys/v2` - Journey workflow editor
-- `/dashboard-l/embedded/broadcasts/v2` - Broadcast campaign editor
-- `/dashboard-l/embedded/segments/v1` - Segment builder
-- `/dashboard-l/embedded/templates/email` - Email template editor
-- `/dashboard-l/embedded/templates/sms` - SMS template editor
+- `/dashboard/dashboard-l/embedded/journeys/v2` - Journey workflow editor
+- `/dashboard/dashboard-l/embedded/broadcasts/v2` - Broadcast campaign editor
+- `/dashboard/dashboard-l/embedded/segments/v1` - Segment builder
+- `/dashboard/dashboard-l/embedded/templates/email` - Email template editor
+- `/dashboard/dashboard-l/embedded/templates/sms` - SMS template editor
+
+**Note**: All dashboard routes are prefixed with `/dashboard` due to Next.js basePath configuration.
 
 ## API Endpoints
 
@@ -135,7 +137,7 @@ const { accessToken, refreshToken } = await response.json();
 
 ```html
 <iframe
-  src="https://dashboard.dittofeed.com/dashboard-l/embedded/journeys?token={accessToken}&workspaceId={workspaceId}"
+  src="https://dashboard.dittofeed.com/dashboard/dashboard-l/embedded/journeys?token={accessToken}&workspaceId={workspaceId}"
   width="100%"
   height="600"
   frameborder="0"
@@ -170,7 +172,7 @@ class EmbeddedDashboard {
   }
 
   getEmbedUrl(component) {
-    return `https://dashboard.dittofeed.com/dashboard-l/embedded/${component}?token=${this.accessToken}&workspaceId=${this.workspaceId}`;
+    return `https://dashboard.dittofeed.com/dashboard/dashboard-l/embedded/${component}?token=${this.accessToken}&workspaceId=${this.workspaceId}`;
   }
 }
 ```
