@@ -1,7 +1,7 @@
 import React from "react";
 import { GetServerSideProps } from "next";
 import EmbeddedLayout from "../../../../components/embeddedLayout";
-import SegmentEditorV2 from "../../../../components/segments/editorV2";
+import { SegmentEditorV2 } from "../../../../components/segments/editorV2";
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { token, workspaceId, id } = context.query;

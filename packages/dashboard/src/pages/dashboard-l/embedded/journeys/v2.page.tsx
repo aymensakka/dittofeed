@@ -2,7 +2,7 @@ import React from "react";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import EmbeddedLayout from "../../../../components/embeddedLayout";
-import JourneyEditor from "../../../../components/journeys/v2/editor";
+import JourneyV2Editor from "../../../../components/journeys/v2/editor";
 import { Box } from "@mui/material";
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -38,7 +38,7 @@ export default function EmbeddedJourneyEditor({
   return (
     <EmbeddedLayout>
       <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <JourneyEditor />
+        <JourneyV2Editor />
       </Box>
     </EmbeddedLayout>
   );

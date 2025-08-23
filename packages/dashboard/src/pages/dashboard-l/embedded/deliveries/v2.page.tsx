@@ -1,7 +1,7 @@
 import React from "react";
 import { GetServerSideProps } from "next";
 import EmbeddedLayout from "../../../../components/embeddedLayout";
-import DeliveriesTableV2 from "../../../../components/deliveriesTableV2";
+import { DeliveriesTableV2 } from "../../../../components/deliveriesTableV2";
 import { Box, Typography } from "@mui/material";
 
 export const getServerSideProps: GetServerSideProps = async (context) => {

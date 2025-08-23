@@ -1,7 +1,7 @@
 import React from "react";
 import { GetServerSideProps } from "next";
 import EmbeddedLayout from "../../../components/embeddedLayout";
-import SegmentsTable from "../../../components/segments/segmentsTable";
+import { SegmentsTable } from "../../../components/segments/segmentsTable";
 import { Box, Typography } from "@mui/material";
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
