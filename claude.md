@@ -85,17 +85,34 @@ CREATE UNIQUE INDEX "Integration_workspaceId_name_key" ON "Integration" ("worksp
 
 ## Deployment & Bootstrap
 
-### Primary Bootstrap Script
-- **`deployment/init-database.sh`**: Complete database initialization with all schema
-  - Creates multi-tenancy tables (Workspace, WorkspaceMember, etc.)
-  - Sets up OAuth/authentication tables
-  - Creates embedded session tables for iframe support
-  - Applies all foreign key constraints and indexes
+### Coolify Production Deployment
 
-### Key Deployment Scripts
-- **`deploy-coolify-embedded.sh`**: Production deployment with embedded dashboard
+#### Standard Multi-Tenant
+- **Bootstrap**: `deployment/bootstrap-standard-multitenant.sh`
+- **Docker Compose**: `docker-compose.coolify.yaml`
+- **Images**: Registry images (`multitenancy-redis-v1`)
+- **Post-deploy Command**: 
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-standard-multitenant.sh | bash
+  ```
+
+#### Embedded Dashboard
+- **Bootstrap**: `deployment/bootstrap-embedded-dashboard.sh`
+- **Docker Compose**: `docker-compose.coolify-embedded.yaml`
+- **Images**: Embedded images (`embedded-final`)
+- **Post-deploy Command**:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-embedded-dashboard.sh | bash
+  ```
+
+### Manual Scripts
+- **`deployment/init-database.sh`**: Complete database initialization with all schema
+- **`deploy-coolify-embedded.sh`**: Local embedded deployment
 - **`local-multitenant-setup.sh`**: Complete local development environment setup
-- **See `deployment/BOOTSTRAP.md`**: Comprehensive bootstrap documentation
+
+### Documentation
+- **`deployment/BOOTSTRAP.md`**: Comprehensive bootstrap documentation
+- **`deployment/COOLIFY_DEPLOYMENT_GUIDE.md`**: Coolify-specific deployment guide
 
 ### Fork Management
 - **See `FORK_MANAGEMENT_GUIDE.md`**: Guidelines for managing the Dittofeed fork

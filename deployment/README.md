@@ -21,32 +21,48 @@ sudo ./deployment/setup-build-environment.sh
 ```
 
 ### For Production Deployment (Coolify)
+
+#### Option 1: Standard Multi-Tenant Deployment
 ```bash
-# After Coolify deploys the stack
+# In Coolify:
+# - Docker Compose Path: /docker-compose.coolify.yaml
+# - Post-deployment Command:
+curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-standard-multitenant.sh | bash
+```
+
+#### Option 2: Embedded Dashboard Deployment
+```bash
+# In Coolify:
+# - Docker Compose Path: /docker-compose.coolify-embedded.yaml
+# - Post-deployment Command:
+curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-embedded-dashboard.sh | bash
+```
+
+#### Manual Bootstrap (if needed)
+```bash
+# SSH into server
 cd ~/dittofeed
 
-# Option 1: Complete database initialization (recommended)
-./deployment/init-database.sh
+# For standard deployment
+./deployment/bootstrap-standard-multitenant.sh
 
-# Option 2: Use orchestration scripts
-./deployment/fix-all.sh                   # Run all fixes in sequence
-./deployment/deploy-coolify-embedded.sh   # Deploy with embedded dashboard
+# For embedded deployment
+./deployment/bootstrap-embedded-dashboard.sh
 
-# For detailed bootstrap information, see:
-# deployment/BOOTSTRAP.md
+# For detailed information, see:
+# - deployment/BOOTSTRAP.md
+# - deployment/COOLIFY_DEPLOYMENT_GUIDE.md
+```
 
-# Setup Cloudflare tunnel updates
-sudo crontab -e
-# Add: */5 * * * * /root/dittofeed/deployment/update-cf-from-host.sh
-
-# Important: Update these in Coolify environment variables:
-# NEXTAUTH_URL=https://communication-dashboard.caramelme.com/dashboard
-# CLICKHOUSE_HOST=clickhouse
-# CLICKHOUSE_USER=dittofeed
-# CLICKHOUSE_PASSWORD=password
-
-# Access the application
-# https://communication-dashboard.caramelme.com/dashboard
+#### Environment Variables (both deployments)
+```bash
+# Required in Coolify:
+AUTH_MODE=multi-tenant
+JWT_SECRET=<generate-with-openssl-rand-base64-32>
+GOOGLE_CLIENT_ID=<your-google-client-id>
+GOOGLE_CLIENT_SECRET=<your-google-client-secret>
+NEXTAUTH_URL=https://your-dashboard.com/dashboard
+NEXT_PUBLIC_API_BASE=https://your-api.com
 ```
 
 ## Script Quick Reference
@@ -62,14 +78,17 @@ sudo crontab -e
 | `build-dashboard.sh` | Build and push Dashboard only | Update Dashboard |
 | `build-worker.sh` | Build and push Worker only | Update Worker |
 | **Bootstrap & Configuration** | | |
-| `init-database.sh` | Complete database initialization | **Primary bootstrap script** |
-| `deploy-coolify-embedded.sh` | Deploy with embedded dashboard | Production deployment |
+| `bootstrap-standard-multitenant.sh` | Bootstrap standard deployment | **Coolify standard deployment** |
+| `bootstrap-embedded-dashboard.sh` | Bootstrap embedded deployment | **Coolify embedded deployment** |
+| `init-database.sh` | Complete database initialization | Manual database setup |
+| `deploy-coolify-embedded.sh` | Deploy with embedded dashboard | Local embedded deployment |
 | `fix-all.sh` | Complete orchestration script | Run all fixes in sequence |
 | `bootstrap-simple.sh` | Quick status check | Check deployment status |
 | `manual-bootstrap.sh` | Interactive workspace creation | Create workspace manually |
 | `bootstrap-with-network-fix.sh` | Complete network setup | Fix network issues, IP changes |
 | `fix-database-schema.sh` | Fix database schema | Add missing columns for multi-tenant |
-| **See [BOOTSTRAP.md](./BOOTSTRAP.md)** | **Complete bootstrap documentation** | **Detailed reference** |
+| **[BOOTSTRAP.md](./BOOTSTRAP.md)** | **Complete bootstrap documentation** | **Detailed reference** |
+| **[COOLIFY_DEPLOYMENT_GUIDE.md](./COOLIFY_DEPLOYMENT_GUIDE.md)** | **Coolify deployment guide** | **Production deployment** |
 | **Cloudflare Tunnel Management** | | |
 | `update-cf-from-host.sh` | Update tunnel from host | After container IP changes |
 | `debug-cloudflared.sh` | Debug cloudflared container | Troubleshoot tunnel issues |

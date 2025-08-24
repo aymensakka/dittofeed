@@ -5,7 +5,44 @@ This document details all bootstrap and initialization scripts for the Dittofeed
 
 ## Main Orchestration Scripts
 
-### 1. `init-database.sh` - Complete Database Initialization
+### Coolify Deployment Bootstrap Scripts
+
+#### `bootstrap-standard-multitenant.sh` - Standard Multi-Tenant Bootstrap
+**Purpose**: Bootstrap script for standard multi-tenant deployment using registry images.
+
+**Usage in Coolify**:
+```bash
+# Post-deployment command:
+curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-standard-multitenant.sh | bash
+```
+
+**Features**:
+- Uses `docker-compose.coolify.yaml`
+- Registry images (`multitenancy-redis-v1`)
+- Basic OAuth setup
+- Standard dashboard access
+- No embedded features
+
+#### `bootstrap-embedded-dashboard.sh` - Embedded Dashboard Bootstrap
+**Purpose**: Bootstrap script for embedded dashboard deployment with JWT and refresh tokens.
+
+**Usage in Coolify**:
+```bash
+# Post-deployment command:
+curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-embedded-dashboard.sh | bash
+```
+
+**Features**:
+- Uses `docker-compose.coolify-embedded.yaml`
+- Embedded-final images
+- Creates embedded session tables
+- JWT with refresh tokens (15-min access, 7-day refresh)
+- Token rotation and audit logging
+- Iframe embedding support
+
+### Manual Bootstrap Scripts
+
+#### 1. `init-database.sh` - Complete Database Initialization
 **Purpose**: The ultimate database bootstrap script that manually creates all required schema without relying on migrations.
 
 **Key Features**:
@@ -277,17 +314,26 @@ healthcheck:
 
 ## Quick Start Commands
 
-### For Production Deployment:
+### For Coolify Production Deployment:
+
+#### Standard Multi-Tenant:
 ```bash
-# 1. Configure environment
-cp .env.coolify-embedded .env
-nano .env  # Add your secrets
+# In Coolify UI:
+# 1. Set Docker Compose Path: /docker-compose.coolify.yaml
+# 2. Add Post-deployment Command:
+curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-standard-multitenant.sh | bash
+# 3. Configure environment variables (see COOLIFY_DEPLOYMENT_GUIDE.md)
+# 4. Deploy
+```
 
-# 2. Deploy services
-./deploy-coolify-embedded.sh
-
-# 3. Initialize database (if needed)
-./deployment/init-database.sh
+#### Embedded Dashboard:
+```bash
+# In Coolify UI:
+# 1. Set Docker Compose Path: /docker-compose.coolify-embedded.yaml
+# 2. Add Post-deployment Command:
+curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/bootstrap-embedded-dashboard.sh | bash
+# 3. Configure environment variables (see COOLIFY_DEPLOYMENT_GUIDE.md)
+# 4. Deploy
 ```
 
 ### For Local Development:
