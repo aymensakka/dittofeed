@@ -162,10 +162,10 @@ EOF
     
     log_info "✓ Embedded session tables created"
     
-    # Now run the full init-database.sh for remaining schema
-    curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/init-database.sh -o /tmp/init-database.sh
-    chmod +x /tmp/init-database.sh
-    /tmp/init-database.sh
+    # Now run the full init-database-embedded.sh for remaining schema
+    curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/init-database-embedded.sh -o /tmp/init-database-embedded.sh
+    chmod +x /tmp/init-database-embedded.sh
+    /tmp/init-database-embedded.sh
 }
 
 # Step 4: Verify embedded session tables exist

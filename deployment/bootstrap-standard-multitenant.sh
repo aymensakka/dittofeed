@@ -80,12 +80,12 @@ docker exec -t $API_CONTAINER sh -c "cd /service && npx drizzle-kit push:pg --co
         # Fallback to manual schema application
         log_info "Applying manual schema..."
         
-        # Download the init-database.sh script
-        curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/init-database.sh -o /tmp/init-database.sh
-        chmod +x /tmp/init-database.sh
+        # Download the standard init-database script
+        curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-main/deployment/init-database-standard.sh -o /tmp/init-database-standard.sh
+        chmod +x /tmp/init-database-standard.sh
         
         # Run it (it will detect containers and apply schema)
-        /tmp/init-database.sh
+        /tmp/init-database-standard.sh
     }
 }
 

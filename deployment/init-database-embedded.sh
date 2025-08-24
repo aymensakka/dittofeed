@@ -1,9 +1,10 @@
 #!/bin/bash
-# Initialize Dittofeed database schema manually
+# Initialize Dittofeed database schema for EMBEDDED dashboard deployment
+# This version includes embedded session tables for iframe support with JWT refresh tokens
 # Run this on the server where Docker containers are running
 
 echo "=================================================="
-echo "🚀 Initializing Dittofeed Database"
+echo "🚀 Initializing Dittofeed Database (EMBEDDED)"
 echo "=================================================="
 echo ""
 
@@ -514,7 +515,10 @@ curl -s -I https://communication-dashboard.caramelme.com/ | grep -q "HTTP/2 307"
 
 echo ""
 echo "=================================================="
-echo "✅ Database initialization complete!"
+echo "✅ Embedded Database initialization complete!"
+echo "   ✓ Core tables created"
+echo "   ✓ Embedded session tables created"
+echo "   ✓ JWT refresh token support ready"
 echo "=================================================="
 echo ""
 echo "Next steps:"
