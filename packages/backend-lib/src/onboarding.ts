@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { unwrap } from "isomorphic-lib/src/resultHandling/resultUtils";
 import { err, ok, Result } from "neverthrow";
 
@@ -18,14 +18,21 @@ export async function onboardUser({
   email: string;
   workspaceName: string;
 }): Promise<Result<null, Error>> {
-  const [maybeWorkspaceMember, workspaces] = await Promise.all([
-    db().query.workspaceMember.findFirst({
-      where: eq(dbWorkspaceMember.email, email),
-    }),
-    db().query.workspace.findMany({
-      where: eq(dbWorkspace.name, workspaceName),
-    }),
-  ]);
+  const workspaces = await db().query.workspace.findMany({
+    where: eq(dbWorkspace.name, workspaceName),
+  });
+
+  const workspace = workspaces[0];
+  if (!workspace) {
+    return err(new Error("Workspace not found"));
+  }
+
+  const maybeWorkspaceMember = await db().query.workspaceMember.findFirst({
+    where: and(
+      eq(dbWorkspaceMember.email, email),
+      eq(dbWorkspaceMember.workspaceId, workspace.id)
+    ),
+  });
 
   let workspaceMember: WorkspaceMember;
   if (maybeWorkspaceMember) {
@@ -35,17 +42,16 @@ export async function onboardUser({
       await insert({
         table: dbWorkspaceMember,
         doNothingOnConflict: true,
-        lookupExisting: eq(dbWorkspaceMember.email, email),
+        lookupExisting: and(
+          eq(dbWorkspaceMember.email, email),
+          eq(dbWorkspaceMember.workspaceId, workspace.id)
+        )!,
         values: {
           email,
+          workspaceId: workspace.id,
         },
       }),
     );
-  }
-
-  const workspace = workspaces[0];
-  if (!workspace) {
-    return err(new Error("Workspace not found"));
   }
 
   if (workspaces.length > 1) {

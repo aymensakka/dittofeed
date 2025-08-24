@@ -1,5 +1,5 @@
 import { Alert, Button, Stack, Typography } from "@mui/material";
-import { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 import axiosInstance from "../lib/axiosInstance";
 import { CsvUploadValidationError } from "isomorphic-lib/src/types";
 import { enqueueSnackbar } from "notistack";

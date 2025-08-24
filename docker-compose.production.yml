@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: dittofeed
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: dittofeed
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - dittofeed-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.7
+    environment:
+      CLICKHOUSE_USER: dittofeed
+      CLICKHOUSE_PASSWORD: password
+      CLICKHOUSE_DB: dittofeed
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ports:
+      - "8124:8123"
+      - "9001:9000"
+    networks:
+      - dittofeed-network
+
+  redis:
+    image: redis:7
+    command: redis-server --requirepass password
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dittofeed-network
+
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=dittofeed
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7234:7233"
+    depends_on:
+      - postgres
+    networks:
+      - dittofeed-network
+
+  api:
+    image: aymensakka/dittofeed-api:embedded-final
+    environment:
+      AUTH_MODE: multi-tenant
+      AUTH_PROVIDER: google
+      DATABASE_URL: postgresql://dittofeed:password@postgres:5432/dittofeed
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: password
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: dittofeed
+      CLICKHOUSE_PASSWORD: password
+      TEMPORAL_ADDRESS: temporal:7233
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-change-in-production}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      ALLOW_AUTO_WORKSPACE_CREATION: "true"
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+      - clickhouse
+      - temporal
+    networks:
+      - dittofeed-network
+
+  dashboard:
+    image: aymensakka/dittofeed-dashboard:embedded-final
+    environment:
+      NEXT_PUBLIC_AUTH_MODE: multi-tenant
+      NEXT_PUBLIC_API_BASE: http://api:3001
+      NEXT_PUBLIC_ENABLE_MULTITENANCY: "true"
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000/dashboard}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID}
+      HUBSPOT_CLIENT_SECRET: ${HUBSPOT_CLIENT_SECRET}
+      NEXT_PUBLIC_HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID}
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - dittofeed-network
+
+  worker:
+    image: aymensakka/dittofeed-worker:embedded-final
+    environment:
+      DATABASE_URL: postgresql://dittofeed:password@postgres:5432/dittofeed
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: password
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: dittofeed
+      CLICKHOUSE_PASSWORD: password
+      TEMPORAL_ADDRESS: temporal:7233
+      NODE_ENV: production
+    depends_on:
+      - postgres
+      - redis
+      - clickhouse
+      - temporal
+      - api
+    networks:
+      - dittofeed-network
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  redis_data:
+
+networks:
+  dittofeed-network:
+    driver: bridge

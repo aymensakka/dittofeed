@@ -257,6 +257,24 @@ export async function getMultiTenantRequestContext({
     !existingMember ||
     existingMember.emailVerified !== emailVerified
   ) {
+    // Get workspace ID - either from existing member or find a default workspace
+    let workspaceId = existingMember?.workspaceId;
+    
+    if (!workspaceId) {
+      // Find the first available workspace for new members
+      const defaultWorkspace = await db().query.workspace.findFirst({
+        where: eq(dbWorkspace.type, WorkspaceTypeAppEnum.Root),
+      });
+      
+      if (!defaultWorkspace) {
+        return err({
+          type: RequestContextErrorType.ApplicationError,
+          message: "No workspace available for member creation",
+        });
+      }
+      workspaceId = defaultWorkspace.id;
+    }
+    
     const [updatedMember] = await db()
       .insert(dbWorkspaceMember)
       .values({
@@ -265,11 +283,12 @@ export async function getMultiTenantRequestContext({
         emailVerified,
         name,
         nickname,
+        workspaceId,
       })
       .onConflictDoUpdate({
         target: existingMember
           ? [dbWorkspaceMember.id]
-          : [dbWorkspaceMember.email],
+          : [dbWorkspaceMember.email, dbWorkspaceMember.workspaceId],
         set: {
           emailVerified,
           name,
@@ -277,6 +296,7 @@ export async function getMultiTenantRequestContext({
         },
       })
       .returning();
+    
     if (!updatedMember) {
       logger().error("Failed to update member", {
         email,
@@ -323,7 +343,7 @@ export async function getMultiTenantRequestContext({
   const memberResouce: WorkspaceMemberResource = {
     id: member.id,
     email: member.email,
-    emailVerified: member.emailVerified,
+    emailVerified: member.emailVerified ?? false,
     name: member.name ?? undefined,
     nickname: member.nickname ?? undefined,
     picture: undefined,

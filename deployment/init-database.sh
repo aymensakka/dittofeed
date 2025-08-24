@@ -401,6 +401,64 @@ BEGIN
     END IF;
 END $$;
 
+-- Embedded Sessions Tables (for iframe embedding with refresh tokens)
+CREATE TABLE IF NOT EXISTS "EmbeddedSession" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "sessionId" UUID NOT NULL,
+    "workspaceId" UUID NOT NULL,
+    "refreshToken" TEXT NOT NULL,
+    "refreshTokenFamily" UUID NOT NULL,
+    "accessTokenHash" TEXT NOT NULL,
+    "previousAccessTokenHash" TEXT,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "lastRefreshedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "refreshExpiresAt" TIMESTAMP(3) NOT NULL,
+    "revokedAt" TIMESTAMP(3),
+    "revocationReason" TEXT,
+    "metadata" JSONB DEFAULT '{}' NOT NULL,
+    "refreshCount" INTEGER DEFAULT 0 NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "fingerprint" TEXT
+);
+
+CREATE TABLE IF NOT EXISTS "EmbeddedSessionAudit" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "sessionId" UUID NOT NULL,
+    "workspaceId" UUID NOT NULL,
+    "action" TEXT NOT NULL,
+    "timestamp" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "metadata" JSONB DEFAULT '{}' NOT NULL,
+    "success" BOOLEAN NOT NULL,
+    "failureReason" TEXT
+);
+
+CREATE TABLE IF NOT EXISTS "EmbeddedSessionRateLimit" (
+    "id" UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "key" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "count" INTEGER DEFAULT 0 NOT NULL,
+    "windowStart" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "lastRequestAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Create indexes for embedded sessions
+CREATE INDEX IF NOT EXISTS "EmbeddedSession_sessionId_idx" ON "EmbeddedSession"("sessionId");
+CREATE INDEX IF NOT EXISTS "EmbeddedSession_workspaceId_idx" ON "EmbeddedSession"("workspaceId");
+CREATE INDEX IF NOT EXISTS "EmbeddedSession_refreshToken_idx" ON "EmbeddedSession"("refreshToken");
+CREATE INDEX IF NOT EXISTS "EmbeddedSession_refreshTokenFamily_idx" ON "EmbeddedSession"("refreshTokenFamily");
+CREATE INDEX IF NOT EXISTS "EmbeddedSession_accessTokenHash_idx" ON "EmbeddedSession"("accessTokenHash");
+CREATE INDEX IF NOT EXISTS "EmbeddedSession_revokedAt_idx" ON "EmbeddedSession"("revokedAt");
+
+CREATE INDEX IF NOT EXISTS "EmbeddedSessionAudit_sessionId_idx" ON "EmbeddedSessionAudit"("sessionId");
+CREATE INDEX IF NOT EXISTS "EmbeddedSessionAudit_workspaceId_idx" ON "EmbeddedSessionAudit"("workspaceId");
+CREATE INDEX IF NOT EXISTS "EmbeddedSessionAudit_timestamp_idx" ON "EmbeddedSessionAudit"("timestamp");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbeddedSessionRateLimit_key_type_idx" ON "EmbeddedSessionRateLimit"("key", "type");
+
 -- Grant permissions
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO dittofeed;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO dittofeed;

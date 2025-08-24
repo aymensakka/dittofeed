@@ -1,2 +1,2 @@
 import EventDetailsSidebar from "./eventDetailsSidebar";
-import axiosInstance from "./axiosInstance";
+import axiosInstance from "../lib/axiosInstance";

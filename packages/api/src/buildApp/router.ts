@@ -29,6 +29,8 @@ import subscriptionManagementController from "../controllers/subscriptionManagem
 import userPropertiesController from "../controllers/userPropertiesController";
 import usersController from "../controllers/usersController";
 import webhooksController from "../controllers/webhooksController";
+import sessionsController from "../controllers/sessionsController";
+import embeddedSessionsController from "../controllers/embeddedSessionsController";
 import { BuildAppOpts } from "../types";
 import adminAuth from "./adminAuth";
 import requestContext from "./requestContext";
@@ -143,5 +145,16 @@ export default async function router(
     async (f: FastifyInstance) =>
       Promise.all([f.register(debugController, { prefix: "/debug" })]),
     { prefix: "/internal-api" },
+  );
+
+  // Embedded API endpoints (api-l namespace)
+  await fastify.register(
+    async (f: FastifyInstance) => {
+      await Promise.all([
+        f.register(sessionsController, { prefix: "/sessions" }),
+        f.register(embeddedSessionsController, { prefix: "/embedded-sessions" }),
+      ]);
+    },
+    { prefix: "/api-l" },
   );
 }

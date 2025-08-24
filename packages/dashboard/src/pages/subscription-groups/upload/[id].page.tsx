@@ -31,7 +31,7 @@ export default function SubscriptionGroupConfig() {
       if (workspace.type !== CompletionStatus.Successful) {
         return;
       }
-      await axios({
+      await axiosInstance({
         url: `${apiBase}/api/subscription-groups/upload-csv`,
         method: "POST",
         data,

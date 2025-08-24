@@ -57,7 +57,7 @@ export async function getWorkspaceMemberRoles({
         member: {
           id: row.member.id,
           email: row.member.email ?? "",
-          emailVerified: row.member.emailVerified,
+          emailVerified: row.member.emailVerified ?? false,
           picture: undefined,
           name: row.member.name ?? undefined,
           nickname: row.member.nickname ?? undefined,
@@ -93,7 +93,10 @@ export async function createWorkspaceMemberRole({
   // Find or create workspace member
   let workspaceMember: WorkspaceMember;
   const maybeWorkspaceMember = await db().query.workspaceMember.findFirst({
-    where: eq(schema.workspaceMember.email, email),
+    where: and(
+      eq(schema.workspaceMember.email, email),
+      eq(schema.workspaceMember.workspaceId, workspaceId)
+    ),
   });
 
   if (maybeWorkspaceMember) {
@@ -103,9 +106,13 @@ export async function createWorkspaceMemberRole({
       await insert({
         table: schema.workspaceMember,
         doNothingOnConflict: true,
-        lookupExisting: eq(schema.workspaceMember.email, email),
+        lookupExisting: and(
+          eq(schema.workspaceMember.email, email),
+          eq(schema.workspaceMember.workspaceId, workspaceId)
+        )!,
         values: {
           email,
+          workspaceId,
         },
       }),
     );
