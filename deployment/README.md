@@ -25,14 +25,15 @@ sudo ./deployment/setup-build-environment.sh
 # After Coolify deploys the stack
 cd ~/dittofeed
 
-# Run the complete fix script (recommended)
-./deployment/fix-all.sh
+# Option 1: Complete database initialization (recommended)
+./deployment/init-database.sh
 
-# OR run individual scripts:
-./deployment/bootstrap-simple.sh          # Check status
-./deployment/fix-database-schema.sh       # Fix schema issues
-./deployment/manual-bootstrap.sh          # Create workspace if needed
-./deployment/bootstrap-with-network-fix.sh # Fix network/IPs
+# Option 2: Use orchestration scripts
+./deployment/fix-all.sh                   # Run all fixes in sequence
+./deployment/deploy-coolify-embedded.sh   # Deploy with embedded dashboard
+
+# For detailed bootstrap information, see:
+# deployment/BOOTSTRAP.md
 
 # Setup Cloudflare tunnel updates
 sudo crontab -e
@@ -61,11 +62,14 @@ sudo crontab -e
 | `build-dashboard.sh` | Build and push Dashboard only | Update Dashboard |
 | `build-worker.sh` | Build and push Worker only | Update Worker |
 | **Bootstrap & Configuration** | | |
+| `init-database.sh` | Complete database initialization | **Primary bootstrap script** |
+| `deploy-coolify-embedded.sh` | Deploy with embedded dashboard | Production deployment |
 | `fix-all.sh` | Complete orchestration script | Run all fixes in sequence |
 | `bootstrap-simple.sh` | Quick status check | Check deployment status |
 | `manual-bootstrap.sh` | Interactive workspace creation | Create workspace manually |
 | `bootstrap-with-network-fix.sh` | Complete network setup | Fix network issues, IP changes |
 | `fix-database-schema.sh` | Fix database schema | Add missing columns for multi-tenant |
+| **See [BOOTSTRAP.md](./BOOTSTRAP.md)** | **Complete bootstrap documentation** | **Detailed reference** |
 | **Cloudflare Tunnel Management** | | |
 | `update-cf-from-host.sh` | Update tunnel from host | After container IP changes |
 | `debug-cloudflared.sh` | Debug cloudflared container | Troubleshoot tunnel issues |

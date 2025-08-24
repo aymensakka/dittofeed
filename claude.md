@@ -83,6 +83,40 @@ CREATE UNIQUE INDEX "OauthToken_workspaceId_name_key" ON "OauthToken" ("workspac
 CREATE UNIQUE INDEX "Integration_workspaceId_name_key" ON "Integration" ("workspaceId", "name");
 ```
 
+## Deployment & Bootstrap
+
+### Primary Bootstrap Script
+- **`deployment/init-database.sh`**: Complete database initialization with all schema
+  - Creates multi-tenancy tables (Workspace, WorkspaceMember, etc.)
+  - Sets up OAuth/authentication tables
+  - Creates embedded session tables for iframe support
+  - Applies all foreign key constraints and indexes
+
+### Key Deployment Scripts
+- **`deploy-coolify-embedded.sh`**: Production deployment with embedded dashboard
+- **`local-multitenant-setup.sh`**: Complete local development environment setup
+- **See `deployment/BOOTSTRAP.md`**: Comprehensive bootstrap documentation
+
+### Fork Management
+- **See `FORK_MANAGEMENT_GUIDE.md`**: Guidelines for managing the Dittofeed fork
+  - Keeping fork synchronized with upstream
+  - Managing feature branches
+  - Deployment strategies
+
+### Database Migration Commands
+```bash
+# Using Drizzle Kit (recommended)
+npx drizzle-kit push:pg --config=drizzle.config.ts
+
+# Manual schema application
+./deployment/init-database.sh
+```
+
+### Embedded Sessions Feature
+- **Tables**: EmbeddedSession, EmbeddedSessionAudit, EmbeddedSessionRateLimit
+- **Security**: Refresh token families, access token rotation, rate limiting
+- **Schema**: `packages/backend-lib/drizzle/0020_embedded_sessions.sql`
+
 ## Never Do
 - Skip workspace validation in API endpoints
 - Mix tenant data in queries
@@ -91,3 +125,5 @@ CREATE UNIQUE INDEX "Integration_workspaceId_name_key" ON "Integration" ("worksp
 - Create database queries without workspace scoping
 - Use hardcoded OAuth client IDs in frontend components
 - Skip importing required dependencies (e.g., axios) in OAuth handlers
+- Deploy without running database migrations
+- Use curl-based health checks in Docker (use Node.js instead)
