@@ -34,7 +34,7 @@ export default function EmbeddedSmsEditor({
 }: EmbeddedSmsEditorProps) {
   return (
     <EmbeddedLayout>
-      <SmsEditor />
+      <SmsEditor templateId={templateId} />
     </EmbeddedLayout>
   );
 }

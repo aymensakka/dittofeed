@@ -34,7 +34,7 @@ export default function EmbeddedSegmentEditor({
 }: EmbeddedSegmentEditorProps) {
   return (
     <EmbeddedLayout>
-      <SegmentEditorV2 />
+      <SegmentEditorV2 id={segmentId} />
     </EmbeddedLayout>
   );
 }

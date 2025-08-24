@@ -34,7 +34,7 @@ export default function EmbeddedEmailEditor({
 }: EmbeddedEmailEditorProps) {
   return (
     <EmbeddedLayout>
-      <EmailEditor />
+      <EmailEditor templateId={templateId} />
     </EmbeddedLayout>
   );
 }
