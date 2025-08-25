@@ -194,6 +194,4 @@ volumes:
   redis_data:
     driver: local
 
-networks:
-  default:
-    driver: bridge
+# Let Coolify manage the network - don't specify any network configuration
