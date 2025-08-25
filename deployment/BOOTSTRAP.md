@@ -42,14 +42,16 @@ curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-m
 
 ### Manual Bootstrap Scripts
 
-#### 1. `init-database.sh` - Complete Database Initialization
-**Purpose**: The ultimate database bootstrap script that manually creates all required schema without relying on migrations.
+#### 1. Database Initialization Scripts
+
+##### `init-database-embedded.sh` - Complete Database Initialization with Embedded Features
+**Purpose**: Database bootstrap script for embedded dashboard deployments that creates all required schema including embedded session tables.
 
 **Key Features**:
 - Creates all database tables with proper SQL DDL
 - Includes multi-tenancy tables (Workspace, WorkspaceMember, WorkspaceMemberRole)
 - Sets up OAuth/authentication tables (AuthProvider, WorkspaceMembeAccount)
-- Creates embedded session tables for iframe support with refresh tokens
+- **Creates embedded session tables for iframe support with refresh tokens**
 - Applies all foreign key constraints and indexes
 - Runs bootstrap.js to populate initial data
 - Tests endpoints after initialization
@@ -64,7 +66,31 @@ curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-m
 
 **Usage**:
 ```bash
-./deployment/init-database.sh
+./deployment/init-database-embedded.sh
+```
+
+##### `init-database-standard.sh` - Standard Database Initialization
+**Purpose**: Database bootstrap script for standard multi-tenant deployments without embedded features.
+
+**Key Features**:
+- Creates all core database tables with proper SQL DDL
+- Includes multi-tenancy tables (Workspace, WorkspaceMember, WorkspaceMemberRole)
+- Sets up OAuth/authentication tables (AuthProvider, WorkspaceMembeAccount)
+- **Does NOT include embedded session tables** (lighter deployment)
+- Applies all foreign key constraints and indexes
+- Runs bootstrap.js to populate initial data
+- Tests endpoints after initialization
+
+**Tables Created**:
+- **Multi-tenancy**: `Workspace`, `WorkspaceMember`, `WorkspaceMemberRole`, `WorkspaceOccupantSetting`
+- **Authentication**: `AuthProvider`, `WorkspaceMembeAccount`, `AdminApiKey`
+- **Core Dittofeed**: `Segment`, `Journey`, `MessageTemplate`, `UserProperty`, `ComputedProperty`, `SubscriptionGroup`
+- **Email**: `EmailProvider`, `DefaultEmailProvider`
+- **Security**: `Secret`, `WriteKey`
+
+**Usage**:
+```bash
+./deployment/init-database-standard.sh
 ```
 
 ### 2. `deploy-coolify-embedded.sh` - Production Deployment Orchestrator
@@ -361,7 +387,9 @@ curl -fsSL https://raw.githubusercontent.com/aymensakka/dittofeed/multi-tenant-m
 
 ## Key Findings
 
-1. **init-database.sh is the master script** - Contains complete schema including embedded sessions
+1. **Database initialization scripts** - Two versions available:
+   - `init-database-embedded.sh` - Complete schema including embedded session tables
+   - `init-database-standard.sh` - Core schema without embedded features
 2. **Health checks must use Node.js** - curl is not available in production containers
 3. **Migration options** - Drizzle Kit push or manual SQL application both work
 4. **Embedded sessions require specific tables** - EmbeddedSession, Audit, and RateLimit tables

@@ -151,6 +151,7 @@ fi
 | Feature | Standard Multi-Tenant | Embedded Dashboard |
 |---------|----------------------|-------------------|
 | **Script** | `bootstrap-standard-multitenant.sh` | `bootstrap-embedded-dashboard.sh` |
+| **Database Init Script** | `init-database-standard.sh` | `init-database-embedded.sh` |
 | **Database Tables** | Core tables only | Core + Embedded session tables |
 | **OAuth Setup** | Basic Google OAuth | OAuth with embedded support |
 | **Session Management** | Standard cookies | JWT with refresh tokens |
@@ -226,8 +227,12 @@ git checkout multi-tenant-main
 docker exec $(docker ps -q -f name=api) sh -c \
   "npx drizzle-kit push:pg --config=packages/backend-lib/drizzle.config.ts"
 
-# Or use init-database.sh
-./deployment/init-database.sh
+# Or use init-database scripts
+# For standard deployment:
+./deployment/init-database-standard.sh
+
+# For embedded deployment:
+./deployment/init-database-embedded.sh
 ```
 
 #### 3. Embedded Sessions Not Working

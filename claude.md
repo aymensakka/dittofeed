@@ -106,7 +106,8 @@ CREATE UNIQUE INDEX "Integration_workspaceId_name_key" ON "Integration" ("worksp
   ```
 
 ### Manual Scripts
-- **`deployment/init-database.sh`**: Complete database initialization with all schema
+- **`deployment/init-database-standard.sh`**: Database initialization with core schema (no embedded tables)
+- **`deployment/init-database-embedded.sh`**: Complete database initialization with all schema including embedded tables
 - **`deploy-coolify-embedded.sh`**: Local embedded deployment
 - **`local-multitenant-setup.sh`**: Complete local development environment setup
 
@@ -125,8 +126,11 @@ CREATE UNIQUE INDEX "Integration_workspaceId_name_key" ON "Integration" ("worksp
 # Using Drizzle Kit (recommended)
 npx drizzle-kit push:pg --config=drizzle.config.ts
 
-# Manual schema application
-./deployment/init-database.sh
+# Manual schema application (standard deployment)
+./deployment/init-database-standard.sh
+
+# Manual schema application (embedded deployment)
+./deployment/init-database-embedded.sh
 ```
 
 ### Embedded Sessions Feature

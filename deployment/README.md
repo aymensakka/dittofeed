@@ -80,7 +80,8 @@ NEXT_PUBLIC_API_BASE=https://your-api.com
 | **Bootstrap & Configuration** | | |
 | `bootstrap-standard-multitenant.sh` | Bootstrap standard deployment | **Coolify standard deployment** |
 | `bootstrap-embedded-dashboard.sh` | Bootstrap embedded deployment | **Coolify embedded deployment** |
-| `init-database.sh` | Complete database initialization | Manual database setup |
+| `init-database-standard.sh` | Database initialization (standard) | Manual database setup without embedded |
+| `init-database-embedded.sh` | Database initialization (embedded) | Manual database setup with embedded tables |
 | `deploy-coolify-embedded.sh` | Deploy with embedded dashboard | Local embedded deployment |
 | `fix-all.sh` | Complete orchestration script | Run all fixes in sequence |
 | `bootstrap-simple.sh` | Quick status check | Check deployment status |
@@ -288,8 +289,11 @@ For OAuth authentication with Google:
 
 2. **Update Database Schema:**
    ```bash
-   # For new installations
-   ./deployment/init-database.sh
+   # For new installations (standard deployment)
+   ./deployment/init-database-standard.sh
+   
+   # For new installations (embedded deployment)
+   ./deployment/init-database-embedded.sh
    
    # For existing installations (migration)
    psql -U dittofeed -d dittofeed -f deployment/oauth-migration.sql
@@ -447,7 +451,7 @@ OAuth-specific variables:
      - Run `oauth-migration.sql` to update schema
      - Seed proper OAuth data for existing users
    - **Missing OAuth tables:**
-     - Run `init-database.sh` for fresh setup
+     - Run `init-database-standard.sh` or `init-database-embedded.sh` for fresh setup
      - Or run `oauth-migration.sql` for existing deployments
 
 6. **Dashboard Returns 404 for All Routes:**

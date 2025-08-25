@@ -126,19 +126,19 @@ fi
 
 # Stop any existing deployment
 if [ -f docker-compose.coolify-embedded.yaml ]; then
-    docker-compose -f docker-compose.coolify-embedded.yaml down || true
+    docker compose -f docker-compose.coolify-embedded.yaml down || true
 fi
 
 # Step 5: Start services
 log_step "5/6: Starting services..."
-docker-compose -f docker-compose.coolify-embedded.yaml up -d
+docker compose -f docker-compose.coolify-embedded.yaml up -d
 
 # Wait for services to be ready
 log_info "Waiting for services to start..."
 sleep 15
 
 # Check service status
-docker-compose -f docker-compose.coolify-embedded.yaml ps
+docker compose -f docker-compose.coolify-embedded.yaml ps
 
 # Step 6: Run database migrations
 log_step "6/6: Running database migrations..."
@@ -146,10 +146,10 @@ log_info "Waiting for API to be ready..."
 sleep 10
 
 # Run migrations
-docker-compose -f docker-compose.coolify-embedded.yaml exec -T api npx drizzle-kit push:pg --config=drizzle.config.ts 2>/dev/null || {
+docker compose -f docker-compose.coolify-embedded.yaml exec -T api npx drizzle-kit push:pg --config=drizzle.config.ts 2>/dev/null || {
     log_warning "Initial migration attempt failed, retrying in 10 seconds..."
     sleep 10
-    docker-compose -f docker-compose.coolify-embedded.yaml exec -T api npx drizzle-kit push:pg --config=drizzle.config.ts || {
+    docker compose -f docker-compose.coolify-embedded.yaml exec -T api npx drizzle-kit push:pg --config=drizzle.config.ts || {
         log_warning "Migrations might have already been applied or will apply on first API request"
     }
 }
@@ -163,17 +163,17 @@ echo "   Dashboard: http://${NEXTAUTH_URL:-localhost:3000}"
 echo "   API: http://${NEXT_PUBLIC_API_BASE:-localhost:3001}"
 echo ""
 echo "📊 Monitor services:"
-echo "   docker-compose -f docker-compose.coolify-embedded.yaml ps"
+echo "   docker compose -f docker-compose.coolify-embedded.yaml ps"
 echo ""
 echo "📋 View logs:"
-echo "   docker-compose -f docker-compose.coolify-embedded.yaml logs -f api"
-echo "   docker-compose -f docker-compose.coolify-embedded.yaml logs -f dashboard"
-echo "   docker-compose -f docker-compose.coolify-embedded.yaml logs -f worker"
+echo "   docker compose -f docker-compose.coolify-embedded.yaml logs -f api"
+echo "   docker compose -f docker-compose.coolify-embedded.yaml logs -f dashboard"
+echo "   docker compose -f docker-compose.coolify-embedded.yaml logs -f worker"
 echo ""
 echo "🔄 Restart services:"
-echo "   docker-compose -f docker-compose.coolify-embedded.yaml restart"
+echo "   docker compose -f docker-compose.coolify-embedded.yaml restart"
 echo ""
 echo "🛑 Stop services:"
-echo "   docker-compose -f docker-compose.coolify-embedded.yaml down"
+echo "   docker compose -f docker-compose.coolify-embedded.yaml down"
 echo ""
 echo "===================================================================="
