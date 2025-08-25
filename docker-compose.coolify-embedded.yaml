@@ -109,7 +109,7 @@ services:
       temporal:
         condition: service_started
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {console.log('Health check status:', r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', (e) => {console.error('Health check error:', e); process.exit(1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {console.log('Health check status:', r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', (e) => {console.error('Health check error:', e); process.exit(1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
