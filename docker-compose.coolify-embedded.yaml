@@ -14,8 +14,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
-    networks:
-      - dittofeed-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dittofeed"]
       interval: 10s
@@ -33,8 +31,6 @@ services:
     ports:
       - "${CLICKHOUSE_PORT:-8124}:8123"
       - "${CLICKHOUSE_NATIVE_PORT:-9001}:9000"
-    networks:
-      - dittofeed-network
     healthcheck:
       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 10s
@@ -48,8 +44,6 @@ services:
       - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
-    networks:
-      - dittofeed-network
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s
@@ -70,11 +64,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - dittofeed-network
 
   api:
-    image: aymensakka/dittofeed-api:embedded-final
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/api:embedded-final
     environment:
       # Authentication
       AUTH_MODE: ${AUTH_MODE:-multi-tenant}
@@ -116,8 +108,6 @@ services:
         condition: service_healthy
       temporal:
         condition: service_started
-    networks:
-      - dittofeed-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {console.log('Health check status:', r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', (e) => {console.error('Health check error:', e); process.exit(1)})"]
       interval: 30s
@@ -126,7 +116,7 @@ services:
       start_period: 40s
 
   dashboard:
-    image: aymensakka/dittofeed-dashboard:embedded-final
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:embedded-final
     environment:
       # Multi-tenant configuration
       NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE:-multi-tenant}
@@ -154,8 +144,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    networks:
-      - dittofeed-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/dashboard', (r) => {console.log('Health check status:', r.statusCode); process.exit(r.statusCode === 200 || r.statusCode === 302 ? 0 : 1)}).on('error', (e) => {console.error('Health check error:', e); process.exit(1)})"]
       interval: 30s
@@ -164,7 +152,7 @@ services:
       start_period: 40s
 
   worker:
-    image: aymensakka/dittofeed-worker:embedded-final
+    image: docker.reactmotion.com/my-docker-repo/dittofeed/worker:embedded-final
     environment:
       # Database connections (must match API configuration)
       DATABASE_URL: postgresql://${POSTGRES_USER:-dittofeed}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-dittofeed}
@@ -191,8 +179,6 @@ services:
         condition: service_started
       api:
         condition: service_healthy
-    networks:
-      - dittofeed-network
     deploy:
       replicas: ${WORKER_REPLICAS:-1}
       restart_policy:
@@ -208,9 +194,4 @@ volumes:
   redis_data:
     driver: local
 
-networks:
-  dittofeed-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
+# Let Coolify manage the network - don't specify any network configuration
