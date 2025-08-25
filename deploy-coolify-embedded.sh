@@ -78,8 +78,17 @@ fi
 
 log_info "✓ Configuration verified"
 
-# Step 3: Check if Docker images exist locally or pull them
-log_step "3/6: Checking Docker images..."
+# Step 3: Login to Docker registry if needed
+log_step "3/6: Docker registry authentication..."
+# Try to login to the registry
+docker login docker.reactmotion.com \
+    --username coolify-system \
+    --password '9sFPGGDJUFnE4z*z4Aj9' 2>/dev/null || {
+    log_warning "Registry login failed, images may not pull correctly"
+}
+
+# Step 4: Check if Docker images exist locally or pull them
+log_step "4/6: Checking Docker images..."
 images_missing=false
 
 # Check for Nexus registry images
@@ -102,8 +111,8 @@ if [ "$images_missing" = true ]; then
     exit 1
 fi
 
-# Step 4: Stop any existing Coolify containers
-log_step "4/6: Stopping existing containers..."
+# Step 5: Stop any existing Coolify containers
+log_step "5/7: Stopping existing containers..."
 if docker ps | grep -q "p0gcsc088cogco0cokco4404"; then
     log_warning "Stopping Coolify containers..."
     docker stop $(docker ps -q --filter name=p0gcsc088cogco0cokco4404) || true
@@ -115,8 +124,8 @@ if [ -f docker-compose.coolify-embedded.yaml ]; then
     docker compose -f docker-compose.coolify-embedded.yaml down || true
 fi
 
-# Step 5: Start services
-log_step "5/6: Starting services..."
+# Step 6: Start services
+log_step "6/7: Starting services..."
 docker compose -f docker-compose.coolify-embedded.yaml up -d
 
 # Wait for services to be ready
@@ -126,8 +135,8 @@ sleep 15
 # Check service status
 docker compose -f docker-compose.coolify-embedded.yaml ps
 
-# Step 6: Run database migrations
-log_step "6/6: Running database migrations..."
+# Step 7: Run database migrations
+log_step "7/7: Running database migrations..."
 log_info "Waiting for API to be ready..."
 sleep 10
 
