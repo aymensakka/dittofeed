@@ -124,6 +124,10 @@ if [ -f docker-compose.coolify-embedded.yaml ]; then
     docker compose -f docker-compose.coolify-embedded.yaml down || true
 fi
 
+# Create Coolify network if it doesn't exist
+log_info "Ensuring Coolify network exists..."
+docker network create p0gcsc088cogco0cokco4404 2>/dev/null || log_info "Network already exists or will be managed by Coolify"
+
 # Step 6: Start services
 log_step "6/7: Starting services..."
 docker compose -f docker-compose.coolify-embedded.yaml up -d
