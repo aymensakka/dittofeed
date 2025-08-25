@@ -219,16 +219,12 @@ services:
 
 volumes:
   postgres_data:
-    external: true
-    name: p0gcsc088cogco0cokco4404_postgres-data
+    driver: local
   redis_data:
-    external: true
-    name: p0gcsc088cogco0cokco4404_redis-data
+    driver: local
   clickhouse_data:
-    external: true
-    name: p0gcsc088cogco0cokco4404_clickhouse-data
+    driver: local
   clickhouse_logs:
-    external: true
-    name: p0gcsc088cogco0cokco4404_clickhouse-logs
+    driver: local
 
 # Let Coolify manage the network - don't specify any network
