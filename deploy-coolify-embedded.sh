@@ -33,59 +33,46 @@ echo "🚀 Dittofeed Multi-tenant Embedded Dashboard Deployment for Coolify"
 echo "=================================================================="
 echo ""
 
-# Step 1: Check if .env file exists
+# Step 1: Check environment configuration
 log_step "1/6: Checking environment configuration..."
-if [ -f .env ]; then
-    log_info "Found .env file"
+# In Coolify, environment variables are already set in the container environment
+# We don't need to load from .env file
+if [ ! -z "$JWT_SECRET" ]; then
+    log_info "✓ Environment variables loaded from Coolify"
 else
-    if [ -f .env.coolify-embedded ]; then
-        log_warning ".env file not found, copying from template..."
-        cp .env.coolify-embedded .env
-        log_error "Please edit .env file with your actual configuration values!"
-        echo ""
-        echo "Required values to configure:"
-        echo "  - JWT_SECRET"
-        echo "  - SECRET_KEY"
-        echo "  - NEXTAUTH_SECRET"
-        echo "  - GOOGLE_CLIENT_ID"
-        echo "  - GOOGLE_CLIENT_SECRET"
-        echo "  - NEXTAUTH_URL (your domain)"
-        echo "  - NEXT_PUBLIC_API_BASE (your domain)"
-        echo ""
-        echo "Run: nano .env"
-        exit 1
+    log_warning "Environment variables not found, checking for .env file..."
+    if [ -f .env ]; then
+        log_info "Loading from .env file..."
+        export $(cat .env | grep -v '^#' | xargs)
     else
-        log_error "No .env or .env.coolify-embedded file found!"
+        log_error "No environment variables found! Please configure in Coolify UI."
         exit 1
     fi
 fi
-
-# Load environment variables
-export $(cat .env | grep -v '^#' | xargs)
 
 # Step 2: Verify required environment variables
 log_step "2/6: Verifying required configuration..."
 missing_vars=()
 
-if [ -z "$JWT_SECRET" ] || [ "$JWT_SECRET" = "your-jwt-secret-change-in-production" ]; then
+if [ -z "$JWT_SECRET" ]; then
     missing_vars+=("JWT_SECRET")
 fi
 
-if [ -z "$GOOGLE_CLIENT_ID" ] || [ "$GOOGLE_CLIENT_ID" = "your-google-client-id" ]; then
+if [ -z "$GOOGLE_CLIENT_ID" ]; then
     missing_vars+=("GOOGLE_CLIENT_ID")
 fi
 
-if [ -z "$GOOGLE_CLIENT_SECRET" ] || [ "$GOOGLE_CLIENT_SECRET" = "your-google-client-secret" ]; then
+if [ -z "$GOOGLE_CLIENT_SECRET" ]; then
     missing_vars+=("GOOGLE_CLIENT_SECRET")
 fi
 
 if [ ${#missing_vars[@]} -gt 0 ]; then
-    log_error "Missing or default values for required environment variables:"
+    log_error "Missing required environment variables:"
     for var in "${missing_vars[@]}"; do
         echo "  - $var"
     done
     echo ""
-    echo "Please edit .env file with your actual values: nano .env"
+    echo "Please configure these in Coolify UI under Environment Variables"
     exit 1
 fi
 
