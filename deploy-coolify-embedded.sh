@@ -78,28 +78,27 @@ fi
 
 log_info "✓ Configuration verified"
 
-# Step 3: Check if Docker images exist locally
+# Step 3: Check if Docker images exist locally or pull them
 log_step "3/6: Checking Docker images..."
 images_missing=false
 
-for image in "aymensakka/dittofeed-api:embedded-final" \
-             "aymensakka/dittofeed-dashboard:embedded-final" \
-             "aymensakka/dittofeed-worker:embedded-final"; do
-    if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image}$"; then
+# Check for Nexus registry images
+for image in "docker.reactmotion.com/my-docker-repo/dittofeed/api:embedded-final" \
+             "docker.reactmotion.com/my-docker-repo/dittofeed/dashboard:embedded-final" \
+             "docker.reactmotion.com/my-docker-repo/dittofeed/worker:embedded-final"; do
+    if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "${image}"; then
         log_info "✓ Found: $image"
     else
-        log_error "✗ Missing: $image"
-        images_missing=true
+        log_warning "Image not found locally, pulling: $image"
+        docker pull $image || {
+            log_error "✗ Failed to pull: $image"
+            images_missing=true
+        }
     fi
 done
 
 if [ "$images_missing" = true ]; then
-    log_error "Some Docker images are missing. Please build them first:"
-    echo ""
-    echo "cd /root/dittofeed"
-    echo "docker build --platform linux/amd64 -f packages/api/Dockerfile -t aymensakka/dittofeed-api:embedded-final ."
-    echo "docker build --platform linux/amd64 -f packages/dashboard/Dockerfile -t aymensakka/dittofeed-dashboard:embedded-final ."
-    echo "docker build --platform linux/amd64 -f packages/worker/Dockerfile -t aymensakka/dittofeed-worker:embedded-final ."
+    log_error "Failed to pull some Docker images. Please check registry access."
     exit 1
 fi
 
